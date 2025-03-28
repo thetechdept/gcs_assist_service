@@ -1,0 +1,150 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Tests and Lint
+
+on:
+  pull_request:
+    branches:
+      - '*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-22.04
+    env:
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${{ secrets.OPENSEARCH_INITIAL_ADMIN_PASSWORD }}
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      opensearch:
+        image: opensearchproject/opensearch:2.15.0
+        ports:
+          - 9200:9200
+          - 9600:9600
+        options: >-
+          --hostname=opensearch_1
+          --ulimit memlock=-1:-1
+          --ulimit nofile=65536:65536
+        env:
+          OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+          DISABLE_SECURITY_PLUGIN: "true"
+          discovery.type: "single-node"
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+          cache: "pip"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils pandoc tar file libmagic-dev libgl1-mesa-glx
+          sudo apt-get clean
+
+      - name: Install python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # added --no-cache-dir otherwise opensearch cluster index creation fails due to disk space issue
+          pip install --no-cache-dir -r requirements.txt
+          pip install pytest-cov
+
+      - name: Run Alembic Migrations
+        run: |
+          cd app/alembic
+          alembic upgrade head
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: test_db
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+
+      - name: Wait for OpenSearch to be ready
+        run: |
+          until curl -s http://localhost:9200/_cluster/health | grep -q '"status":"green"'; do
+            echo "Waiting for OpenSearch to be ready..."
+            sleep 10
+          done
+          echo "OpenSearch is ready."
+
+      - name: Synchronise central RAG index
+        run: |
+          echo 'Synchronising central RAG...'
+          python scripts/sync_opensearch/sync_central_rag.py
+          echo 'Synchronisation of central RAG completed'
+        env:
+          OPENSEARCH_USER: ${{ secrets.OPENSEARCH_USER }}
+          OPENSEARCH_PASSWORD: ${{ secrets.OPENSEARCH_PASSWORD }}
+          OPENSEARCH_HOST: localhost
+          OPENSEARCH_PORT: 9200
+          OPENSEARCH_DISABLE_SSL: True
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: test_db
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+
+      - name: Run tests
+        run: |
+          pytest -n logical --dist loadscope --cov --cov-report=term-missing --junit-xml=test-output/test-output.xml --cov-report xml:test-output/coverage.xml
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: test_db
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          SHOW_DETAILED_ERROR_MESSAGES: True
+          LLM_USE_BEDROCK: True
+          OPENSEARCH_DISABLE_SSL: True
+          AUTH_SECRET_KEY: ${{ secrets.AUTH_SECRET_KEY }}
+          BUGSNAG_API_KEY: ${{ secrets.BUGSNAG_API_KEY }}
+          BUGSNAG_RELEASE_STAGE: copilot-dev-github-actions
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION_NAME: ${{ secrets.AWS_REGION_NAME }}
+          CLOUDWATCH_LOG_GROUP: ${{ secrets.CLOUDWATCH_LOG_GROUP }}
+          CLOUDWATCH_LOG_STREAM: ${{ secrets.CLOUDWATCH_LOG_STREAM }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          BYPASS_SESSION_VALIDATOR: ${{ secrets.BYPASS_SESSION_VALIDATOR }}
+          BYPASS_AUTH_VALIDATOR: ${{ secrets.BYPASS_AUTH_VALIDATOR }}
+          USE_RAG: ${{ secrets.USE_RAG }}
+          OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${{ secrets.OPENSEARCH_INITIAL_ADMIN_PASSWORD }}
+          OPENSEARCH_USER: ${{ secrets.OPENSEARCH_USER }}
+          OPENSEARCH_PASSWORD: ${{ secrets.OPENSEARCH_PASSWORD }}
+          OPENSEARCH_HOST: localhost
+          OPENSEARCH_PORT: ${{ secrets.OPENSEARCH_PORT }}
+          RAG_LLM_MODEL_INDEX_ROUTER: ${{ secrets.RAG_LLM_MODEL_INDEX_ROUTER }}
+          RAG_SYSTEM_PROMPT_INDEX_ROUTER: ${{ secrets.RAG_SYSTEM_PROMPT_INDEX_ROUTER }}
+          RAG_LLM_MODEL_QUERY_REWRITER: ${{ secrets.RAG_LLM_MODEL_QUERY_REWRITER }}
+          RAG_SYSTEM_PROMPT_QUERY_REWRITER: ${{ secrets.RAG_SYSTEM_PROMPT_QUERY_REWRITER }}
+          RAG_LLM_MODEL_CHUNK_REVIEWER: ${{ secrets.RAG_LLM_MODEL_CHUNK_REVIEWER }}
+          RAG_SYSTEM_PROMPT_CHUNK_REVIEWER: ${{ secrets.RAG_SYSTEM_PROMPT_CHUNK_REVIEWER }}
+
+      - name: Persist test reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: ./test-output/
