@@ -9,7 +9,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 
 from app.app_types import DocumentAccessError
-from app.config import IS_DEV, URL_HOSTNAME, load_environment_variables
+from app.config import (
+    IS_DEV,
+    URL_HOSTNAME,
+    load_environment_variables,
+    validate_ai_service_keys,
+)
 from app.database.database_exception import (
     DatabaseError,
     DatabaseExceptionErrorCode,
@@ -32,7 +37,11 @@ from app.routers import (
 )
 from app.services.bedrock.bedrock_types import BedrockError
 from app.services.bugsnag import BUGSNAG_ENABLED, BugsnagLogger
-from app.services.opensearch import sync_central_index, sync_labour_index, verify_connection_to_opensearch
+from app.services.opensearch import (
+    sync_central_index,
+    sync_labour_index,
+    verify_connection_to_opensearch,
+)
 
 
 @asynccontextmanager
@@ -50,6 +59,9 @@ async def lifespan(app: FastAPI):
         None: Yields control to the main API code
     """
     # Startup code is written here
+    logger.info("Validating AI service API keys...")
+    validate_ai_service_keys()
+
     logger.info("Verifying OpenSearch connection...")
     verify_connection_to_opensearch()
     async with async_db_session() as s:
@@ -144,7 +156,9 @@ app.include_router(analytics.router, prefix="/v1", tags=["Analytics"])
 
 if IS_DEV:
     if os.getenv("SHOW_DEVELOPER_ENDPOINTS_IN_DOCS", False):
-        app.include_router(dev_endpoints.router, prefix="/dev", tags=["Developer Test Endpoints"])
+        app.include_router(
+            dev_endpoints.router, prefix="/dev", tags=["Developer Test Endpoints"]
+        )
 
 
 # exception handlers
@@ -201,14 +215,20 @@ async def bedrock_exception_handler(request: Request, exc: BedrockError):
     """
     return JSONResponse(
         status_code=503,
-        content={"status": "failed", "error_code": "BEDROCK_SERVICE_ERROR", "status_message": str(exc)},
+        content={
+            "status": "failed",
+            "error_code": "BEDROCK_SERVICE_ERROR",
+            "status_message": str(exc),
+        },
     )
 
 
 @app.middleware("http")
 async def set_global_timeout(request: Request, call_next):
     try:
-        response = await asyncio.wait_for(call_next(request), timeout=REQUEST_TIMEOUT_SECS)
+        response = await asyncio.wait_for(
+            call_next(request), timeout=REQUEST_TIMEOUT_SECS
+        )
         return response
     except exceptions.TimeoutError:
         return JSONResponse(
