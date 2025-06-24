@@ -1,0 +1,22 @@
+# Deployment artifacts
+*.log
+*.tmp
+
+# Local environment files
+.env.local
+.env.*.local
+
+# Azure CLI cache
+.azure/
+
+# Generated ARM templates
+arm-templates/
+
+# Terraform state files (if used in future)
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Backup files
+*.backup
+*.bak

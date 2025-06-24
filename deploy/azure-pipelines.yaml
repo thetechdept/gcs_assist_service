@@ -1,0 +1,123 @@
+trigger: none
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+parameters:
+  - name: deployBicep
+    type: boolean
+    default: false
+    displayName: Deploy Bicep Infrastructure
+
+variables:
+  azureSubscription: "GCS-Assist-Service" # Update this to match your Azure subscription connection
+  applicationName: "gcs-assist"
+  buildConfiguration: Release
+  location: uksouth
+  containerRegistryName: "" # Will be set dynamically
+
+stages:
+  - stage: build
+    displayName: Build Stage
+    jobs:
+      - job: build
+        displayName: Build and Push Container Images
+        steps:
+          - task: Docker@2
+            displayName: Build API Docker Image
+            inputs:
+              command: build
+              dockerfile: Dockerfile
+              tags: |
+                $(Build.BuildId)
+                latest
+              arguments: "--build-arg DEBUG_MODE=False"
+
+          - task: AzureCLI@2
+            displayName: Get Container Registry Name
+            inputs:
+              azureSubscription: $(azureSubscription)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                # This will be set after infrastructure deployment
+                echo "Container registry will be created during infrastructure deployment"
+
+          # Publish Bicep files for infrastructure deployment
+          - publish: deploy/bicep
+            artifact: bicep
+            displayName: Publish Bicep Templates
+
+          # Publish Docker context for later use
+          - publish: .
+            artifact: docker-context
+            displayName: Publish Docker Context
+
+  - stage: dev
+    displayName: Deploy to Development Environment
+    dependsOn: build
+    jobs:
+      - deployment: dev
+        displayName: Deploy to Dev
+        environment: dev
+        variables:
+          environment: dev
+          # Secrets - these should be configured in Azure DevOps variable groups
+          openaiApiKey: $(openaiApiKey.dev)
+          postgresPassword: $(postgresPassword.dev)
+          opensearchAdminPassword: $(opensearchAdminPassword.dev)
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - template: azure-deployment-steps.yaml
+                  parameters:
+                    deployBicep: ${{ parameters.deployBicep }}
+                    environment: dev
+
+  - stage: qa
+    displayName: Deploy to QA Environment
+    dependsOn: build
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: qa
+        displayName: Deploy to QA
+        environment: qa
+        variables:
+          environment: qa
+          # Secrets - these should be configured in Azure DevOps variable groups
+          openaiApiKey: $(openaiApiKey.qa)
+          postgresPassword: $(postgresPassword.qa)
+          opensearchAdminPassword: $(opensearchAdminPassword.qa)
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - template: azure-deployment-steps.yaml
+                  parameters:
+                    deployBicep: ${{ parameters.deployBicep }}
+                    environment: qa
+
+  - stage: prod
+    displayName: Deploy to Production Environment
+    dependsOn: qa
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: prod
+        displayName: Deploy to Production
+        environment: prod
+        variables:
+          environment: prod
+          # Secrets - these should be configured in Azure DevOps variable groups
+          openaiApiKey: $(openaiApiKey.prod)
+          postgresPassword: $(postgresPassword.prod)
+          opensearchAdminPassword: $(opensearchAdminPassword.prod)
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - template: azure-deployment-steps.yaml
+                  parameters:
+                    deployBicep: ${{ parameters.deployBicep }}
+                    environment: prod

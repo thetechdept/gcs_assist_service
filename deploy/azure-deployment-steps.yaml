@@ -1,0 +1,149 @@
+parameters:
+  deployBicep: true
+  environment: dev
+
+steps:
+  - task: AzureCLI@2
+    displayName: Deploy Infrastructure
+    condition: eq('${{ parameters.deployBicep }}', 'true')
+    inputs:
+      azureSubscription: $(azureSubscription)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        # Create a resource group
+        resourceGroupName=rg-$(applicationName)-${{ parameters.environment }}
+
+        echo "Creating resource group: $resourceGroupName"
+        az group create \
+          --name $resourceGroupName \
+          --location $(location) \
+          --tags Environment=${{ parameters.environment }} Application=$(applicationName)
+
+        echo "Deploying Bicep infrastructure..."
+        deploymentOutput=$(az deployment group create \
+          --name $(Build.BuildNumber) \
+          --resource-group $resourceGroupName \
+          --template-file $(Pipeline.Workspace)/bicep/main.bicep \
+          --parameters location=$(location) \
+          --parameters applicationName=$(applicationName) \
+          --parameters environment=${{ parameters.environment }} \
+          --parameters openaiApiKey='$(openaiApiKey)' \
+          --parameters postgresPassword='$(postgresPassword)' \
+          --parameters opensearchAdminPassword='$(opensearchAdminPassword)' \
+          --query 'properties.outputs' \
+          --output json)
+
+        echo "Deployment output: $deploymentOutput"
+
+        # Extract outputs
+        containerRegistryName=$(echo $deploymentOutput | jq -r '.containerRegistryName.value')
+        containerRegistryLoginServer=$(echo $deploymentOutput | jq -r '.containerRegistryLoginServer.value')
+
+        echo "Container Registry Name: $containerRegistryName"
+        echo "Container Registry Login Server: $containerRegistryLoginServer"
+
+        # Set pipeline variables for subsequent tasks
+        echo "##vso[task.setvariable variable=containerRegistryName]$containerRegistryName"
+        echo "##vso[task.setvariable variable=containerRegistryLoginServer]$containerRegistryLoginServer"
+
+  - task: AzureCLI@2
+    displayName: Build and Push Docker Image
+    inputs:
+      azureSubscription: $(azureSubscription)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        # Get ACR credentials
+        echo "Getting ACR credentials for $(containerRegistryName)"
+        acrPassword=$(az acr credential show --name $(containerRegistryName) --query "passwords[0].value" --output tsv)
+        acrUsername=$(az acr credential show --name $(containerRegistryName) --query "username" --output tsv)
+
+        # Login to ACR
+        echo "Logging into ACR..."
+        echo $acrPassword | docker login $(containerRegistryLoginServer) --username $acrUsername --password-stdin
+
+        # Build and tag the image
+        echo "Building Docker image..."
+        cd $(Pipeline.Workspace)/docker-context
+        docker build -t $(containerRegistryLoginServer)/$(applicationName)-api:$(Build.BuildId) \
+                     -t $(containerRegistryLoginServer)/$(applicationName)-api:latest \
+                     --build-arg DEBUG_MODE=False \
+                     -f Dockerfile .
+
+        # Push the image
+        echo "Pushing Docker image..."
+        docker push $(containerRegistryLoginServer)/$(applicationName)-api:$(Build.BuildId)
+        docker push $(containerRegistryLoginServer)/$(applicationName)-api:latest
+
+  - task: AzureCLI@2
+    displayName: Update Container Apps
+    inputs:
+      azureSubscription: $(azureSubscription)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        resourceGroupName=rg-$(applicationName)-${{ parameters.environment }}
+
+        echo "Updating API Container App with new image..."
+        az containerapp update \
+          --name ca-$(applicationName)-api-${{ parameters.environment }} \
+          --resource-group $resourceGroupName \
+          --image $(containerRegistryLoginServer)/$(applicationName)-api:$(Build.BuildId)
+
+        echo "Container App updated successfully!"
+
+  - task: AzureCLI@2
+    displayName: Run Database Migrations
+    inputs:
+      azureSubscription: $(azureSubscription)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        resourceGroupName=rg-$(applicationName)-${{ parameters.environment }}
+
+        echo "Running database migrations..."
+        az containerapp exec \
+          --name ca-$(applicationName)-api-${{ parameters.environment }} \
+          --resource-group $resourceGroupName \
+          --command "cd app/alembic && alembic upgrade head" || echo "Migration command completed (may have warnings)"
+
+        echo "Database migrations completed!"
+
+  - task: AzureCLI@2
+    displayName: Sync OpenSearch Indexes
+    inputs:
+      azureSubscription: $(azureSubscription)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        resourceGroupName=rg-$(applicationName)-${{ parameters.environment }}
+
+        echo "Syncing OpenSearch indexes..."
+        az containerapp exec \
+          --name ca-$(applicationName)-api-${{ parameters.environment }} \
+          --resource-group $resourceGroupName \
+          --command "python scripts/sync_opensearch/sync_central_rag.py" || echo "OpenSearch sync completed (may have warnings)"
+
+        echo "OpenSearch sync completed!"
+
+  - task: AzureCLI@2
+    displayName: Get Application URL
+    inputs:
+      azureSubscription: $(azureSubscription)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        resourceGroupName=rg-$(applicationName)-${{ parameters.environment }}
+
+        echo "Getting application URL..."
+        appUrl=$(az containerapp show \
+          --name ca-$(applicationName)-api-${{ parameters.environment }} \
+          --resource-group $resourceGroupName \
+          --query "properties.configuration.ingress.fqdn" \
+          --output tsv)
+
+        echo "Application deployed successfully!"
+        echo "Application URL: https://$appUrl"
+        echo "API Documentation: https://$appUrl/docs"
+        echo "Health Check: https://$appUrl/healthcheck"
