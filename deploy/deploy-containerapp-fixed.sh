@@ -158,6 +158,7 @@ build_and_push_image() {
     print_status "Building Docker image..."
     cd ..  # Go back to project root
     docker build -t "${CONTAINER_REGISTRY_LOGIN_SERVER}/${APPLICATION_NAME}-api:latest" \
+                 --platform linux/amd64 \
                  --build-arg DEBUG_MODE=False \
                  -f Dockerfile .
     

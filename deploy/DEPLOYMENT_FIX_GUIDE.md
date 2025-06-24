@@ -199,10 +199,18 @@ After successful deployment, verify:
    - Check network connectivity
    - Ensure sufficient permissions
 
-3. **Container app deployment fails:**
+3. **Architecture mismatch error (`linux/arm64` vs `linux/amd64`):**
+
+   - This occurs when building on Apple Silicon Macs (M1/M2/M3)
+   - Azure Container Apps requires `linux/amd64` architecture
+   - The fixed script includes `--platform linux/amd64` flag
+   - If building manually, use: `docker build --platform linux/amd64 -t your-image .`
+
+4. **Container app deployment fails:**
    - Verify all required parameters are provided
    - Check container registry permissions
    - Ensure image exists in registry
+   - Check image architecture matches `linux/amd64`
 
 ### Debug Commands
 
