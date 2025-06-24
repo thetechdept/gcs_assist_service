@@ -9,10 +9,6 @@ param acrAdminUserEnabled bool = true
 param appInsightsSamplingPercentage int = 100
 
 @secure()
-@description('OpenAI API Key')
-param openaiApiKey string
-
-@secure()
 @description('PostgreSQL Password')
 param postgresPassword string
 
@@ -132,31 +128,8 @@ module opensearchNode2ContainerApp 'containerapp-opensearch.bicep' = {
   ]
 }
 
-// API Container App
-module apiContainerApp 'containerapp-api.bicep' = {
-  name: '${deployment().name}--api'
-  params: {
-    name: 'ca-${applicationName}-api-${environment}'
-    location: location
-    containerAppEnvironmentId: containerAppEnvironment.outputs.containerAppEnvironmentId
-    containerRegistryName: containerRegistryName
-    appInsightsConnectionString: appInsights.properties.ConnectionString
-    applicationName: applicationName
-    openaiApiKey: openaiApiKey
-    postgresPassword: postgresPassword
-    opensearchAdminPassword: opensearchAdminPassword
-  }
-  dependsOn: [
-    containerRegistry
-    postgresContainerApp
-    opensearchNode1ContainerApp
-    opensearchNode2ContainerApp
-  ]
-}
-
 // Outputs
 output containerRegistryName string = containerRegistryName
 output containerRegistryLoginServer string = containerRegistry.outputs.loginServer
 output containerAppEnvironmentId string = containerAppEnvironment.outputs.containerAppEnvironmentId
-output apiContainerAppFqdn string = apiContainerApp.outputs.fqdn
 output appInsightsConnectionString string = appInsights.properties.ConnectionString

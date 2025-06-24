@@ -1,7 +1,6 @@
 param name string
 param location string = resourceGroup().location
 param containerAppEnvironmentId string
-param containerRegistryName string
 param storageAccountName string
 param nodeName string
 param isBootstrapNode bool = false
@@ -23,6 +22,9 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' existing 
 resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
   name: name
   location: location
+  dependsOn: [
+    opensearchStorage
+  ]
   properties: {
     managedEnvironmentId: containerAppEnvironmentId
     configuration: {
@@ -113,6 +115,10 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
   }
 }
 
+resource containerAppEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' existing = {
+  name: split(containerAppEnvironmentId, '/')[8]
+}
+
 resource opensearchStorage 'Microsoft.App/managedEnvironments/storages@2023-05-01' = {
   parent: containerAppEnvironment
   name: 'opensearch-storage'
@@ -124,10 +130,6 @@ resource opensearchStorage 'Microsoft.App/managedEnvironments/storages@2023-05-0
       accessMode: 'ReadWrite'
     }
   }
-}
-
-resource containerAppEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' existing = {
-  name: split(containerAppEnvironmentId, '/')[8]
 }
 
 output fqdn string = containerApp.properties.configuration.ingress.fqdn

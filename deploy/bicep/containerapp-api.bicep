@@ -4,7 +4,6 @@ param containerAppEnvironmentId string
 param containerRegistryName string
 param appInsightsConnectionString string
 param applicationName string
-param environment string
 
 @description('Container image tag')
 param imageTag string = 'latest'
