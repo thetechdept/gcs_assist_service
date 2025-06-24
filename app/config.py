@@ -38,6 +38,12 @@ LLM_DOCUMENT_RELEVANCY_MODEL = "anthropic.claude-3-5-haiku-20241022-v1:0"
 if env_variable("LLM_DEFAULT_MODEL"):
     LLM_DEFAULT_MODEL = env_variable("LLM_DEFAULT_MODEL")
 
+if env_variable("LLM_DEFAULT_PROVIDER"):
+    LLM_DEFAULT_PROVIDER = env_variable("LLM_DEFAULT_PROVIDER")
+
+if env_variable("LLM_DOCUMENT_RELEVANCY_MODEL"):
+    LLM_DOCUMENT_RELEVANCY_MODEL = env_variable("LLM_DOCUMENT_RELEVANCY_MODEL")
+
 WHITELISTED_URLS = ["https://www.gov.uk"]
 BLACKLISTED_URLS = ["https://www.gov.uk/publications"]
 WEB_BROWSING_TIMEOUT = 300
