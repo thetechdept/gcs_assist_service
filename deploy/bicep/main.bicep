@@ -105,6 +105,8 @@ module opensearchNode1ContainerApp 'containerapp-opensearch.bicep' = {
     storageAccountName: storageAccountName
     nodeName: 'opensearch-node1'
     isBootstrapNode: true
+    applicationName: applicationName
+    environment: environment
     opensearchAdminPassword: opensearchAdminPassword
   }
   dependsOn: [
@@ -123,6 +125,8 @@ module opensearchNode2ContainerApp 'containerapp-opensearch.bicep' = {
     storageAccountName: storageAccountName
     nodeName: 'opensearch-node2'
     isBootstrapNode: false
+    applicationName: applicationName
+    environment: environment
     opensearchAdminPassword: opensearchAdminPassword
   }
   dependsOn: [

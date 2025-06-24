@@ -66,7 +66,9 @@ class OpenSearchRecord:
 
 
 def get_central_index(db_session: AsyncSession):
-    return DbOperations.get_index_by_name(db_session=db_session, name=CENTRAL_RAG_INDEX_NAME)
+    return DbOperations.get_index_by_name(
+        db_session=db_session, name=CENTRAL_RAG_INDEX_NAME
+    )
 
 
 def verify_connection_to_opensearch():
@@ -86,7 +88,9 @@ def verify_connection_to_opensearch():
         logger.info("Connection to OpenSearch succesful")
     except Exception as ex:
         traceback_str = traceback.format_exc()
-        raise ConnectionError(f"Error connecting with OpenSearch: \n{traceback_str}\n\n") from ex
+        raise ConnectionError(
+            f"Error connecting with OpenSearch: \n{traceback_str}\n\n"
+        ) from ex
     logger.info("Succesfully connected to OpenSearch.")
     return
 
@@ -134,6 +138,9 @@ class OpenSearchClient:
                 verify_certs=False,
                 ssl_assert_hostname=False,
                 ssl_show_warn=False,
+                timeout=60,  # Increase timeout to 60 seconds
+                max_retries=3,  # Add retry logic
+                retry_on_timeout=True,
             )
         return cls._instance
 
@@ -161,12 +168,17 @@ def create_async_client():
         verify_certs=False,
         ssl_assert_hostname=False,
         ssl_show_warn=False,
+        timeout=60,  # Increase timeout to 60 seconds
+        max_retries=3,  # Add retry logic
+        retry_on_timeout=True,
     )
 
     return client
 
 
-async def list_indexes(db_session: AsyncSession, include_personal_document_index: bool = False) -> List[SearchIndex]:
+async def list_indexes(
+    db_session: AsyncSession, include_personal_document_index: bool = False
+) -> List[SearchIndex]:
     """
     Lists all active indexes in the PostgreSQL database.
     if include_personal_document_index is True, the personal_document_uploads index will be included in the list.
@@ -226,7 +238,9 @@ async def load_chunks_to_central_rag(
                 ).to_opensearch_dict()
 
                 # Index the document in OpenSearch
-                response = opensearch_client.index(index=search_index.name, body=doc_to_index)
+                response = opensearch_client.index(
+                    index=search_index.name, body=doc_to_index
+                )
                 id_opensearch = response["_id"]
 
                 # Insert the document chunk into PostgreSQL
@@ -269,7 +283,9 @@ async def list_chunks_in_central_rag(
     # Get all central chunks
     central_index = await get_central_index(db_session)
     chunks = await DbOperations.get_document_chunks_filtered_with_search_index(
-        db_session=db_session, search_index_uuid=central_index.uuid, show_deleted_chunks=show_deleted_chunks
+        db_session=db_session,
+        search_index_uuid=central_index.uuid,
+        show_deleted_chunks=show_deleted_chunks,
     )
 
     chunks_formatted = [
@@ -290,7 +306,9 @@ async def list_chunks_in_central_rag(
 
 
 # Does not soft delete the Document object as the Document may be used across multiple indexes.
-async def delete_chunk_in_central_rag(db_session: AsyncSession, document_chunk_uuid: UUID):
+async def delete_chunk_in_central_rag(
+    db_session: AsyncSession, document_chunk_uuid: UUID
+):
     opensearch_client = create_client()
 
     deleted_at = datetime.now()
@@ -306,10 +324,14 @@ async def delete_chunk_in_central_rag(db_session: AsyncSession, document_chunk_u
     else:
         logger.info(f"No SearchIndex found with uuid: {document_chunk_uuid}")
 
-    response = opensearch_client.delete(index=central_index.name, id=document_chunk.id_opensearch)
+    response = opensearch_client.delete(
+        index=central_index.name, id=document_chunk.id_opensearch
+    )
     logger.info(f"{response=}")
     if response["result"] == "deleted":
-        logger.info(f"DocumentChunk '{document_chunk.name}' has been successfully deleted.")
+        logger.info(
+            f"DocumentChunk '{document_chunk.name}' has been successfully deleted."
+        )
     else:
         raise RuntimeError(f"Failed to delete DocumentChunk '{document_chunk.name}'.")
 
@@ -371,13 +393,17 @@ class AsyncOpenSearchOperations:
             docs.append(d)
 
         index_action = AsyncOpenSearchClient.get().bulk(body=docs)
-        response = await LogsHandler.with_logging(Action.OPENSEARCH_INDEX_DOCUMENT, index_action)
+        response = await LogsHandler.with_logging(
+            Action.OPENSEARCH_INDEX_DOCUMENT, index_action
+        )
 
         if not response.get("errors", False):
             return response
 
         # collect errors and raise exception
-        errors = AsyncOpenSearchOperations._collect_errors(response, action_type="index")
+        errors = AsyncOpenSearchOperations._collect_errors(
+            response, action_type="index"
+        )
         if not errors:
             return response
 
@@ -406,19 +432,25 @@ class AsyncOpenSearchOperations:
 
         """
         if not ids:
-            logger.info("No document IDs provided for deletion. Skipping deletion process.")
+            logger.info(
+                "No document IDs provided for deletion. Skipping deletion process."
+            )
             return None
 
         logger.info("Deleting %s document chunks from index %s", len(ids), index)
         # build bulk request
         request = [{"delete": {"_index": index, "_id": _id}} for _id in ids]
         delete_action = AsyncOpenSearchClient.get().bulk(body=request)
-        response = await LogsHandler.with_logging(Action.OPENSEARCH_DELETE_DOCUMENT, delete_action)
+        response = await LogsHandler.with_logging(
+            Action.OPENSEARCH_DELETE_DOCUMENT, delete_action
+        )
 
         if not response.get("errors", False):
             return response
 
-        errors = AsyncOpenSearchOperations._collect_errors(response, action_type="delete")
+        errors = AsyncOpenSearchOperations._collect_errors(
+            response, action_type="delete"
+        )
         if not errors:
             return response
 
@@ -427,7 +459,9 @@ class AsyncOpenSearchOperations:
         raise DocumentOperationError(exception_msg)
 
     @staticmethod
-    async def get_document_chunks(index: str, document_uuid: str, max_size: int = 6) -> List[Dict]:
+    async def get_document_chunks(
+        index: str, document_uuid: str, max_size: int = 6
+    ) -> List[Dict]:
         """
         Gets document chunks from `from the index and document uuid provided.
 
@@ -448,19 +482,34 @@ class AsyncOpenSearchOperations:
             document_uuid,
         )
         request_body = {
-            "query": {"bool": {"filter": [{"terms": {"document_uuid.keyword": [document_uuid]}}]}},
+            "query": {
+                "bool": {
+                    "filter": [{"terms": {"document_uuid.keyword": [document_uuid]}}]
+                }
+            },
             "size": max_size,
         }
 
         action = AsyncOpenSearchClient.get().search(request_body, index=index)
-        response = await LogsHandler.with_logging(Action.OPENSEARCH_SEARCH_DOCUMENT, action)
+        response = await LogsHandler.with_logging(
+            Action.OPENSEARCH_SEARCH_DOCUMENT, action
+        )
         hit_elements = response["hits"]["hits"]
-        logger.info("Found %s document chunks for document %s", len(hit_elements), document_uuid)
+        logger.info(
+            "Found %s document chunks for document %s", len(hit_elements), document_uuid
+        )
         return hit_elements
 
     @staticmethod
-    async def search_user_document_chunks(document_uuid: str, query: str, index: str) -> List[Dict]:
-        logger.debug("searching index: %s  with document: %s and user query: %s", index, document_uuid, query)
+    async def search_user_document_chunks(
+        document_uuid: str, query: str, index: str
+    ) -> List[Dict]:
+        logger.debug(
+            "searching index: %s  with document: %s and user query: %s",
+            index,
+            document_uuid,
+            query,
+        )
 
         search_body = {
             "query": {
@@ -469,7 +518,11 @@ class AsyncOpenSearchOperations:
                         {
                             "multi_match": {
                                 "query": query,
-                                "fields": ["document_name", "chunk_name", "chunk_content"],
+                                "fields": [
+                                    "document_name",
+                                    "chunk_name",
+                                    "chunk_content",
+                                ],
                             }
                         }
                     ],
@@ -483,7 +536,9 @@ class AsyncOpenSearchOperations:
         logger.debug("built search query %s", search_body)
         # Perform the search
         try:
-            response = await AsyncOpenSearchClient.get().search(body=search_body, index=index)
+            response = await AsyncOpenSearchClient.get().search(
+                body=search_body, index=index
+            )
             chunks = response["hits"]["hits"]
             logger.info(
                 "%s chunks retrieved from %s using doc %s",
@@ -493,7 +548,9 @@ class AsyncOpenSearchOperations:
             )
             return chunks
         except Exception as e:
-            AsyncOpenSearchOperations._handle_search_error(e, query, index, str(search_body))
+            AsyncOpenSearchOperations._handle_search_error(
+                e, query, index, str(search_body)
+            )
 
         # return no match
         return []
@@ -504,18 +561,27 @@ class AsyncOpenSearchOperations:
 
         # Prepare the search body
         search_body = {
-            "query": {"multi_match": {"query": query, "fields": ["document_name", "chunk_name", "chunk_content"]}},
+            "query": {
+                "multi_match": {
+                    "query": query,
+                    "fields": ["document_name", "chunk_name", "chunk_content"],
+                }
+            },
             "size": 3,
         }
 
         # Perform the search
         try:
-            response = await AsyncOpenSearchClient.get().search(body=search_body, index=index)
+            response = await AsyncOpenSearchClient.get().search(
+                body=search_body, index=index
+            )
             chunks = response["hits"]["hits"]
             logger.info(f"{len(chunks)} chunks retrieved from {index}")
             return chunks
         except Exception as e:
-            AsyncOpenSearchOperations._handle_search_error(e, query, index, str(search_body))
+            AsyncOpenSearchOperations._handle_search_error(
+                e, query, index, str(search_body)
+            )
 
         # return no match
         return []
@@ -531,6 +597,11 @@ class AsyncOpenSearchOperations:
             and ex.error == "search_phase_execution_exception"
             and "maxClauseCount is set to 1024" in str(ex)
         ):
-            logger.error("Search error\nIndex:%s\nUser query:%s\nSearch body:%s", index, query, search_body)
+            logger.error(
+                "Search error\nIndex:%s\nUser query:%s\nSearch body:%s",
+                index,
+                query,
+                search_body,
+            )
         else:
             raise ex

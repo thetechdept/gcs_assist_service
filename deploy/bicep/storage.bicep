@@ -61,8 +61,17 @@ resource postgresFileShare 'Microsoft.Storage/storageAccounts/fileServices/share
   }
 }
 
-resource opensearchFileShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = {
-  name: '${storageAccount.name}/default/opensearch-data'
+resource opensearchNode1FileShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = {
+  name: '${storageAccount.name}/default/opensearch-data-opensearch-node1'
+  properties: {
+    accessTier: 'TransactionOptimized'
+    shareQuota: 20
+    enabledProtocols: 'SMB'
+  }
+}
+
+resource opensearchNode2FileShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = {
+  name: '${storageAccount.name}/default/opensearch-data-opensearch-node2'
   properties: {
     accessTier: 'TransactionOptimized'
     shareQuota: 20
@@ -74,4 +83,5 @@ output storageAccountName string = storageAccount.name
 output storageAccountId string = storageAccount.id
 output primaryEndpoints object = storageAccount.properties.primaryEndpoints
 output postgresFileShareName string = 'postgres-data'
-output opensearchFileShareName string = 'opensearch-data'
+output opensearchNode1FileShareName string = 'opensearch-data-opensearch-node1'
+output opensearchNode2FileShareName string = 'opensearch-data-opensearch-node2'

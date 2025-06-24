@@ -238,15 +238,58 @@ After successful deployment:
 4. **Backup strategy** - Implement database and data backups
 5. **Security review** - Review access controls and secrets management
 
+## OpenSearch Multi-Node Deployment Fix
+
+### Additional Issue: OpenSearch Node 2 Failure
+
+If you encounter OpenSearch node 2 failing with port mismatch errors:
+
+```
+runningState: Failed
+runningStateDetails: 'Deployment Progress Deadline Exceeded. 0/1 replicas ready.
+The TargetPort 9200 does not match any of the listening ports: [9650 9600]. 1/1
+Container crashing: opensearch'
+```
+
+This indicates OpenSearch clustering issues in Azure Container Apps environment.
+
+### OpenSearch Fix Solution
+
+**Quick Fix Script**: `deploy/fix-opensearch-deployment.sh`
+
+```bash
+cd deploy
+./fix-opensearch-deployment.sh
+```
+
+**What the fix does:**
+
+1. Configures each OpenSearch node as a single-node cluster
+2. Creates separate storage volumes for each node
+3. Updates network and discovery settings for Azure Container Apps
+4. Ensures proper port configuration (9200 for HTTP)
+
+**Key Changes Made:**
+
+- Set `discovery.type=single-node` for both nodes
+- Separate file shares for each node's data
+- Proper network host binding (`0.0.0.0`)
+- Disabled memory lock (not supported in containers)
+- Fixed Java options for container environment
+
 ## Files Modified/Created
 
 - ✅ `deploy/bicep/main-infrastructure-only.bicep` - New infrastructure-only template
-- ✅ `deploy/deploy-containerapp-fixed.sh` - Fixed deployment script
+- ✅ `deploy/deploy-containerapp-fixed.sh` - Fixed deployment script with AMD64 architecture
 - ✅ `deploy/bicep/containerapp-api-with-placeholder.bicep` - Alternative placeholder approach
-- ✅ `deploy/DEPLOYMENT_FIX_GUIDE.md` - This guide
+- ✅ `deploy/bicep/containerapp-opensearch.bicep` - Fixed OpenSearch configuration
+- ✅ `deploy/bicep/storage.bicep` - Updated with separate file shares for OpenSearch nodes
+- ✅ `deploy/fix-opensearch-deployment.sh` - Script to fix existing OpenSearch deployment
+- ✅ `deploy/rebuild-image-amd64.sh` - Script to rebuild Docker image with correct architecture
+- ✅ `deploy/DEPLOYMENT_FIX_GUIDE.md` - This comprehensive guide
 
-## Original Files (unchanged)
+## Original Files (updated)
 
-- `deploy/bicep/main.bicep` - Original template (kept for reference)
+- `deploy/bicep/main.bicep` - Updated with new OpenSearch parameters
+- `deploy/bicep/main-infrastructure-only.bicep` - Updated with new OpenSearch parameters
 - `deploy/deploy-containerapp.sh` - Original script (kept for reference)
-- All other Bicep templates remain unchanged

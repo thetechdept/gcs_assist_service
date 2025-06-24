@@ -191,7 +191,7 @@ async def database_exception_handler(request: Request, exc: DatabaseError):
         JSONResponse: With appropriate status code and message based on error type
     """
     # Report the detailed bug to Bugsnag
-    bugsnag.notify(f"Database Error: {exc}")
+    bugsnag.notify(Exception(f"Database Error: {exc.message}"))
 
     if exc.code == DatabaseExceptionErrorCode.GET_BY_UUID_ERROR:
         return JSONResponse(content="Record not found", status_code=404)

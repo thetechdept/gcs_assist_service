@@ -4,6 +4,8 @@ param containerAppEnvironmentId string
 param storageAccountName string
 param nodeName string
 param isBootstrapNode bool = false
+param applicationName string
+param environment string
 
 @description('OpenSearch version')
 param opensearchVersion string = '2.11.1'
@@ -56,20 +58,36 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
               value: nodeName
             }
             {
-              name: 'discovery.seed_hosts'
-              value: isBootstrapNode ? '${nodeName}' : 'opensearch-node1,${nodeName}'
+              name: 'network.host'
+              value: '0.0.0.0'
+            }
+            {
+              name: 'http.port'
+              value: '9200'
+            }
+            {
+              name: 'transport.port'
+              value: '9300'
+            }
+            {
+              name: 'discovery.type'
+              value: 'single-node'
             }
             {
               name: 'cluster.initial_cluster_manager_nodes'
-              value: isBootstrapNode ? nodeName : 'opensearch-node1'
+              value: nodeName
+            }
+            {
+              name: 'node.roles'
+              value: '["cluster_manager", "data", "ingest"]'
             }
             {
               name: 'bootstrap.memory_lock'
-              value: 'true'
+              value: 'false'
             }
             {
               name: 'OPENSEARCH_JAVA_OPTS'
-              value: '-Xms512m -Xmx512m'
+              value: '-Xms512m -Xmx512m -Djava.net.preferIPv4Stack=true'
             }
             {
               name: 'OPENSEARCH_INITIAL_ADMIN_PASSWORD'
@@ -84,8 +102,12 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
               value: 'true'
             }
             {
-              name: 'discovery.type'
-              value: isBootstrapNode ? 'zen' : ''
+              name: 'action.auto_create_index'
+              value: 'true'
+            }
+            {
+              name: 'cluster.routing.allocation.disk.threshold_enabled'
+              value: 'false'
             }
           ]
           resources: {
@@ -108,7 +130,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
         {
           name: 'opensearch-data'
           storageType: 'AzureFile'
-          storageName: 'opensearch-storage'
+          storageName: 'os-storage-${take(nodeName, 20)}'
         }
       ]
     }
@@ -121,12 +143,12 @@ resource containerAppEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' 
 
 resource opensearchStorage 'Microsoft.App/managedEnvironments/storages@2023-05-01' = {
   parent: containerAppEnvironment
-  name: 'opensearch-storage'
+  name: 'os-storage-${take(nodeName, 20)}'
   properties: {
     azureFile: {
       accountName: storageAccount.name
       accountKey: storageAccount.listKeys().keys[0].value
-      shareName: 'opensearch-data'
+      shareName: 'opensearch-data-${nodeName}'
       accessMode: 'ReadWrite'
     }
   }
