@@ -22,6 +22,20 @@ param postgresPassword string
 @secure()
 param opensearchAdminPassword string
 
+@secure()
+param awsAccessKeyId string
+
+@secure()
+param awsSecretAccessKey string
+
+param ragLlmModelIndexRouter string
+param ragSystemPromptIndexRouter string
+param ragLlmModelQueryRewriter string
+param ragSystemPromptQueryRewriter string
+param ragLlmModelChunkReviewer string
+param ragSystemPromptChunkReviewer string
+param llmDefaultModel string
+
 resource containerRegistry 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
   name: containerRegistryName
 }
@@ -67,6 +81,14 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
         {
           name: 'opensearch-admin-password'
           value: opensearchAdminPassword
+        }
+        {
+          name: 'aws-access-key-id'
+          value: awsAccessKeyId
+        }
+        {
+          name: 'aws-secret-access-key'
+          value: awsSecretAccessKey
         }
       ]
     }
@@ -169,27 +191,27 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
             // RAG Configuration
             {
               name: 'RAG_LLM_MODEL_INDEX_ROUTER'
-              value: 'gpt-4o'
+              value: ragLlmModelIndexRouter
             }
             {
               name: 'RAG_SYSTEM_PROMPT_INDEX_ROUTER'
-              value: 'index_router_1'
+              value: ragSystemPromptIndexRouter
             }
             {
               name: 'RAG_LLM_MODEL_QUERY_REWRITER'
-              value: 'gpt-4o'
+              value: ragLlmModelQueryRewriter
             }
             {
               name: 'RAG_SYSTEM_PROMPT_QUERY_REWRITER'
-              value: 'query_rewriter_1'
+              value: ragSystemPromptQueryRewriter
             }
             {
               name: 'RAG_LLM_MODEL_CHUNK_REVIEWER'
-              value: 'gpt-4o'
+              value: ragLlmModelChunkReviewer
             }
             {
               name: 'RAG_SYSTEM_PROMPT_CHUNK_REVIEWER'
-              value: 'chunk_reviewer_1'
+              value: ragSystemPromptChunkReviewer
             }
             // LLM Configuration
             {
@@ -202,11 +224,19 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
             }
             {
               name: 'LLM_DEFAULT_MODEL'
-              value: 'gpt-4o'
+              value: llmDefaultModel
             }
             {
               name: 'OPENAI_API_KEY'
               secretRef: 'openai-api-key'
+            }
+            {
+              name: 'AWS_ACCESS_KEY_ID'
+              secretRef: 'aws-access-key-id'
+            }
+            {
+              name: 'AWS_SECRET_ACCESS_KEY'
+              secretRef: 'aws-secret-access-key'
             }
             // Test Variables
             {

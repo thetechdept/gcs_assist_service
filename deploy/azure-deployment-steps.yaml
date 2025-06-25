@@ -31,6 +31,15 @@ steps:
           --parameters openaiApiKey='$(openaiApiKey)' \
           --parameters postgresPassword='$(postgresPassword)' \
           --parameters opensearchAdminPassword='$(opensearchAdminPassword)' \
+          --parameters awsAccessKeyId='$(awsAccessKeyId)' \
+          --parameters awsSecretAccessKey='$(awsSecretAccessKey)' \
+          --parameters ragLlmModelIndexRouter='$(ragLlmModelIndexRouter)' \
+          --parameters ragSystemPromptIndexRouter='$(ragSystemPromptIndexRouter)' \
+          --parameters ragLlmModelQueryRewriter='$(ragLlmModelQueryRewriter)' \
+          --parameters ragSystemPromptQueryRewriter='$(ragSystemPromptQueryRewriter)' \
+          --parameters ragLlmModelChunkReviewer='$(ragLlmModelChunkReviewer)' \
+          --parameters ragSystemPromptChunkReviewer='$(ragSystemPromptChunkReviewer)' \
+          --parameters llmDefaultModel='$(llmDefaultModel)' \
           --query 'properties.outputs' \
           --output json)
 

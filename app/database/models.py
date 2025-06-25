@@ -141,6 +141,7 @@ class Chat(Base):
     from_open_chat = Column(Boolean, nullable=False)
     use_rag = Column(Boolean, nullable=True, server_default="true")
     use_gov_uk_search_api = Column(Boolean, nullable=True, server_default="false")
+    deleted_at = Column(DateTime, nullable=True)
 
     def client_response(self):
         return {
@@ -266,10 +267,14 @@ class Theme(Base):
     # This is to avoid a situation where themes / use cases are shown in a random order on the frontend.
 
     def client_response(self):
-        return super().client_response({"title": self.title, "subtitle": self.subtitle, "position": self.position})
+        return super().client_response(
+            {"title": self.title, "subtitle": self.subtitle, "position": self.position}
+        )
 
     def __str__(self):
-        return f"title: {self.title}; subtitle: {self.subtitle}; position: {self.position}"
+        return (
+            f"title: {self.title}; subtitle: {self.subtitle}; position: {self.position}"
+        )
 
 
 class UseCase(Base):
@@ -347,13 +352,17 @@ class Document(Base):
     url = Column(Text)
     is_central = Column(Boolean, nullable=False)
     user_mappings = relationship("DocumentUserMapping", back_populates="document")
-    chat_document_mapping = relationship("ChatDocumentMapping", back_populates="document")
+    chat_document_mapping = relationship(
+        "ChatDocumentMapping", back_populates="document"
+    )
 
 
 class DocumentUserMapping(Base):
     __tablename__ = "document_user_mapping"
 
-    document_id = Column(Integer, ForeignKey("document.id"), nullable=False, primary_key=True)
+    document_id = Column(
+        Integer, ForeignKey("document.id"), nullable=False, primary_key=True
+    )
     user_id = Column(Integer, ForeignKey("user.id"), nullable=False, primary_key=True)
     auth_session_id = Column(Integer, ForeignKey("auth_session.id"), nullable=False)
     expired_at = Column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
@@ -365,7 +374,9 @@ class ChatDocumentMapping(Base):
     __tablename__ = "chat_document_mapping"
 
     chat_id = Column(Integer, ForeignKey("chat.id"), primary_key=True)
-    document_uuid = Column(UUID(as_uuid=True), ForeignKey("document.uuid"), primary_key=True)
+    document_uuid = Column(
+        UUID(as_uuid=True), ForeignKey("document.uuid"), primary_key=True
+    )
 
     chat = relationship("Chat", back_populates="chat_document_mapping")
     document = relationship("Document", back_populates="chat_document_mapping")
@@ -377,7 +388,9 @@ class RewrittenQuery(Base):
 
     search_index_id = Column(Integer, ForeignKey("search_index.id"), nullable=False)
     message_id = Column(Integer, ForeignKey("message.id"), nullable=False)
-    llm_internal_response_id = Column(Integer, ForeignKey("llm_internal_response.id"), nullable=False)
+    llm_internal_response_id = Column(
+        Integer, ForeignKey("llm_internal_response.id"), nullable=False
+    )
     content = Column(Text, nullable=False)
 
 
@@ -459,8 +472,12 @@ class GovUkSearchResult(Base):
     __tablename__ = "gov_uk_search_result"
 
     message_id = Column(Integer, ForeignKey("message.id"), nullable=False)
-    gov_uk_search_query_id = Column(Integer, ForeignKey("gov_uk_search_query.id"), nullable=False)
-    llm_internal_response_id = Column(Integer, ForeignKey("llm_internal_response.id"), nullable=False)
+    gov_uk_search_query_id = Column(
+        Integer, ForeignKey("gov_uk_search_query.id"), nullable=False
+    )
+    llm_internal_response_id = Column(
+        Integer, ForeignKey("llm_internal_response.id"), nullable=False
+    )
     content = Column(Text, nullable=False)
     url = Column(Text, nullable=False)
     is_used = Column(Boolean, nullable=False)
@@ -470,7 +487,9 @@ class GovUkSearchResult(Base):
 class GovUkSearchQuery(Base):
     __tablename__ = "gov_uk_search_query"
 
-    llm_internal_response_id = Column(Integer, ForeignKey("llm_internal_response.id"), nullable=False)
+    llm_internal_response_id = Column(
+        Integer, ForeignKey("llm_internal_response.id"), nullable=False
+    )
     content = Column(Text, nullable=False)
 
 

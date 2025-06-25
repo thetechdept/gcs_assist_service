@@ -12,6 +12,11 @@ LOCATION="uksouth"
 SUBSCRIPTION_ID="10416533-79d8-434a-ba12-b7e7d8cd982a"  # Set your Azure subscription ID
 ENVIRONMENT="dev"   # Change to qa or prod as needed
 
+# Load environment variables from .env file
+if [ -f ../.env ]; then
+    export $(grep -v '^#' ../.env | xargs)
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -90,6 +95,14 @@ get_secrets() {
     
     echo -n "OpenSearch Admin Password (press enter for default): "
     read -s OPENSEARCH_ADMIN_PASSWORD
+    echo
+
+    echo -n "AWS Access Key ID: "
+    read -s AWS_ACCESS_KEY_ID
+    echo
+
+    echo -n "AWS Secret Access Key: "
+    read -s AWS_SECRET_ACCESS_KEY
     echo
     
     # Set defaults if empty
@@ -190,7 +203,16 @@ deploy_api_container_app() {
         --parameters applicationName="$APPLICATION_NAME" \
         --parameters openaiApiKey="$OPENAI_API_KEY" \
         --parameters postgresPassword="$POSTGRES_PASSWORD" \
-        --parameters opensearchAdminPassword="$OPENSEARCH_ADMIN_PASSWORD"
+        --parameters opensearchAdminPassword="$OPENSEARCH_ADMIN_PASSWORD" \
+        --parameters awsAccessKeyId="$AWS_ACCESS_KEY_ID" \
+        --parameters awsSecretAccessKey="$AWS_SECRET_ACCESS_KEY" \
+        --parameters ragLlmModelIndexRouter="$RAG_LLM_MODEL_INDEX_ROUTER" \
+        --parameters ragSystemPromptIndexRouter="$RAG_SYSTEM_PROMPT_INDEX_ROUTER" \
+        --parameters ragLlmModelQueryRewriter="$RAG_LLM_MODEL_QUERY_REWRITER" \
+        --parameters ragSystemPromptQueryRewriter="$RAG_SYSTEM_PROMPT_QUERY_REWRITER" \
+        --parameters ragLlmModelChunkReviewer="$RAG_LLM_MODEL_CHUNK_REVIEWER" \
+        --parameters ragSystemPromptChunkReviewer="$RAG_SYSTEM_PROMPT_CHUNK_REVIEWER" \
+        --parameters llmDefaultModel="$LLM_DEFAULT_MODEL"
     
     print_success "API Container App deployed successfully!"
 }

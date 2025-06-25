@@ -1,0 +1,38 @@
+graph TD
+subgraph "FastAPI Application"
+direction LR
+A[main.py] --> B{Routers};
+B --> C["Healthcheck"];
+B --> D["Session API"];
+B --> E["Chat API"];
+B --> F["Chat Stream API"];
+B --> G["Feedback API"];
+B --> H["User API"];
+B --> I["User Prompt API"];
+B --> J["Themes Use Cases API"];
+B --> K["OpenSearch API"];
+B --> L["Analytics API"];
+B --> M["Developer Endpoints"];
+
+        A --> N{Services};
+        N --> O[Bedrock];
+        N --> P[Bugsnag];
+        N --> Q[OpenSearch];
+        N --> R[Database];
+        N --> S[RAG];
+        N --> T[Web Browser];
+    end
+
+    subgraph "Data Stores"
+        direction TB
+        R --> U((PostgreSQL));
+        Q --> V{{OpenSearch}};
+    end
+
+    subgraph "External Services"
+        direction TB
+        O --> W{AWS Bedrock};
+        P --> X{Bugsnag};
+    end
+
+    style A fill:#f9f,stroke:#333,stroke-width:2px

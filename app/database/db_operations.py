@@ -103,7 +103,9 @@ class DbOperations:
         return central_documents
 
     @staticmethod
-    async def get_document_by_uuid(db_session: AsyncSession, document_uuid: str) -> Optional[int]:
+    async def get_document_by_uuid(
+        db_session: AsyncSession, document_uuid: str
+    ) -> Optional[int]:
         """
         Retrieves the document by uuid value provided.
 
@@ -114,8 +116,14 @@ class DbOperations:
         Returns:
             Optional[int]: The  id of the document if present in the database.
         """
-        stmt = select(Document.id).filter(Document.uuid == document_uuid).filter(Document.deleted_at.is_(None))
-        result = await LogsHandler.with_logging(Action.DB_RETRIEVE_DOCUMENT, db_session.execute(stmt))
+        stmt = (
+            select(Document.id)
+            .filter(Document.uuid == document_uuid)
+            .filter(Document.deleted_at.is_(None))
+        )
+        result = await LogsHandler.with_logging(
+            Action.DB_RETRIEVE_DOCUMENT, db_session.execute(stmt)
+        )
 
         return result.scalar()
 
@@ -133,16 +141,28 @@ class DbOperations:
             None
         """
         update_chunks_stmt = (
-            update(DocumentChunk).where(DocumentChunk.document_id == document_id).values(deleted_at=datetime.now())
+            update(DocumentChunk)
+            .where(DocumentChunk.document_id == document_id)
+            .values(deleted_at=datetime.now())
         )
 
-        update_document_stmt = update(Document).where(Document.id == document_id).values(deleted_at=datetime.now())
+        update_document_stmt = (
+            update(Document)
+            .where(Document.id == document_id)
+            .values(deleted_at=datetime.now())
+        )
 
-        await LogsHandler.with_logging(Action.DB_MARK_DOCUMENT_DELETED, db_session.execute(update_chunks_stmt))
-        await LogsHandler.with_logging(Action.DB_MARK_DOCUMENT_DELETED, db_session.execute(update_document_stmt))
+        await LogsHandler.with_logging(
+            Action.DB_MARK_DOCUMENT_DELETED, db_session.execute(update_chunks_stmt)
+        )
+        await LogsHandler.with_logging(
+            Action.DB_MARK_DOCUMENT_DELETED, db_session.execute(update_document_stmt)
+        )
 
     @staticmethod
-    async def mark_user_document_mapping_as_deleted(db_session: AsyncSession, document_id: int, user: User) -> Result:
+    async def mark_user_document_mapping_as_deleted(
+        db_session: AsyncSession, document_id: int, user: User
+    ) -> Result:
         """
         Updates DocumentUserMapping records as deleted for the document id and user provided.
 
@@ -163,11 +183,15 @@ class DbOperations:
             )
             .values(deleted_at=datetime.now())
         )
-        result = await LogsHandler.with_logging(Action.DB_MARK_USER_DOCUMENT_MAPPING_DELETED, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_MARK_USER_DOCUMENT_MAPPING_DELETED, db_session.execute(stmt)
+        )
         return result
 
     @staticmethod
-    async def get_opensearch_ids_from_document_chunks(db_session: AsyncSession, document_id: int) -> List[str]:
+    async def get_opensearch_ids_from_document_chunks(
+        db_session: AsyncSession, document_id: int
+    ) -> List[str]:
         """
         Fetches opensearch _id values from document_chunk table where it's associcated with the document_id provided.
 
@@ -181,7 +205,9 @@ class DbOperations:
         stmt = select(DocumentChunk.id_opensearch).filter(
             DocumentChunk.document_id == document_id, DocumentChunk.deleted_at.is_(None)
         )
-        result = await LogsHandler.with_logging(Action.DB_RETRIEVE_OPENSEARCH_IDS, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_RETRIEVE_OPENSEARCH_IDS, db_session.execute(stmt)
+        )
         id_opensearch = result.scalars().all()
         return id_opensearch
 
@@ -197,13 +223,21 @@ class DbOperations:
         Returns:
             List[Chat]: List of user Chats.
         """
-        stmt = select(Chat).where(Chat.user_id == user_id).order_by(desc(Chat.updated_at))
-        chats_result = await LogsHandler.with_logging(Action.DB_RETRIEVE_CHATS, db_session.execute(stmt))
+        stmt = (
+            select(Chat)
+            .where(Chat.user_id == user_id, Chat.deleted_at.is_(None))
+            .order_by(desc(Chat.updated_at))
+        )
+        chats_result = await LogsHandler.with_logging(
+            Action.DB_RETRIEVE_CHATS, db_session.execute(stmt)
+        )
         chats = chats_result.scalars().all()
         return chats
 
     @staticmethod
-    async def get_chat_with_messages(db_session: AsyncSession, chat_id: int, user_id: int) -> Chat:
+    async def get_chat_with_messages(
+        db_session: AsyncSession, chat_id: int, user_id: int
+    ) -> Chat:
         """
         Retrieve chat and messages for a specific chat identified by its UUID and user ID.
         Args:
@@ -221,7 +255,8 @@ class DbOperations:
             .outerjoin(Document, Document.uuid == ChatDocumentMapping.document_uuid)
             .outerjoin(
                 DocumentUserMapping,
-                (DocumentUserMapping.document_id == Document.id) & (DocumentUserMapping.user_id == user_id),
+                (DocumentUserMapping.document_id == Document.id)
+                & (DocumentUserMapping.user_id == user_id),
             )
             .options(
                 contains_eager(Chat.chat_document_mapping)
@@ -233,7 +268,9 @@ class DbOperations:
             .order_by(Message.created_at, Document.created_at)
         )
 
-        result = await LogsHandler.with_logging(Action.DB_RETRIEVE_CHAT, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_RETRIEVE_CHAT, db_session.execute(stmt)
+        )
         return result.scalars().unique().one()
 
     @staticmethod
@@ -256,7 +293,9 @@ class DbOperations:
         stmt = (
             select(Document)
             .join(DocumentUserMapping, (DocumentUserMapping.document_id == Document.id))
-            .join(ChatDocumentMapping, ChatDocumentMapping.document_uuid == Document.uuid)
+            .join(
+                ChatDocumentMapping, ChatDocumentMapping.document_uuid == Document.uuid
+            )
             .where(
                 DocumentUserMapping.deleted_at.is_(None),
                 DocumentUserMapping.user_id == user_id,
@@ -267,7 +306,9 @@ class DbOperations:
         return _exec.scalars().all()
 
     @staticmethod
-    async def save_records(db_session: AsyncSession, model: T, values: List[Mapping[str, Any]]) -> List[T]:
+    async def save_records(
+        db_session: AsyncSession, model: T, values: List[Mapping[str, Any]]
+    ) -> List[T]:
         """
         Inserts multiple records into the database for a given model and returns the inserted records.
 
@@ -336,18 +377,28 @@ class DbOperations:
         current_date = datetime.now()
         doc_user_map_stmt = (
             update(DocumentUserMapping)
-            .where(DocumentUserMapping.expired_at < current_date, DocumentUserMapping.deleted_at.is_(None))
+            .where(
+                DocumentUserMapping.expired_at < current_date,
+                DocumentUserMapping.deleted_at.is_(None),
+            )
             .values(deleted_at=current_date)
             .returning(DocumentUserMapping.document_id)
         )
         result = await LogsHandler.with_logging(
-            Action.DB_MARK_USER_DOCUMENT_MAPPING_DELETED, db_session.execute(doc_user_map_stmt)
+            Action.DB_MARK_USER_DOCUMENT_MAPPING_DELETED,
+            db_session.execute(doc_user_map_stmt),
         )
         document_ids = result.scalars().all()
 
         if document_ids:
-            doc_stmt = update(Document).where(Document.id.in_(document_ids)).values(deleted_at=current_date)
-            await LogsHandler.with_logging(Action.DB_MARK_DOCUMENT_DELETED, db_session.execute(doc_stmt))
+            doc_stmt = (
+                update(Document)
+                .where(Document.id.in_(document_ids))
+                .values(deleted_at=current_date)
+            )
+            await LogsHandler.with_logging(
+                Action.DB_MARK_DOCUMENT_DELETED, db_session.execute(doc_stmt)
+            )
 
             doc_chunk_stmt = (
                 update(DocumentChunk)
@@ -355,22 +406,30 @@ class DbOperations:
                 .values(deleted_at=current_date)
                 .returning(DocumentChunk.id_opensearch)
             )
-            result = await LogsHandler.with_logging(Action.DB_MARK_DOCUMENT_DELETED, db_session.execute(doc_chunk_stmt))
+            result = await LogsHandler.with_logging(
+                Action.DB_MARK_DOCUMENT_DELETED, db_session.execute(doc_chunk_stmt)
+            )
             id_opensearch_list = result.scalars().all()
             return id_opensearch_list
 
         return []
 
     @staticmethod
-    async def upsert_user_by_uuid(db_session: AsyncSession, user_key_uuid: str) -> User | None:
+    async def upsert_user_by_uuid(
+        db_session: AsyncSession, user_key_uuid: str
+    ) -> User | None:
         user_stmt = select(User).where(User.uuid == user_key_uuid)
-        user_result = await LogsHandler.with_logging(Action.GET_USER_BY_UUID, db_session.execute(user_stmt))
+        user_result = await LogsHandler.with_logging(
+            Action.GET_USER_BY_UUID, db_session.execute(user_stmt)
+        )
         user = user_result.scalars().first()
         if user is not None:
             return user
         try:
             new_user_stmt = insert(User).values(uuid=user_key_uuid).returning(User)
-            user = await LogsHandler.with_logging(Action.UPSERT_USER_BY_UUID, db_session.execute(new_user_stmt))
+            user = await LogsHandler.with_logging(
+                Action.UPSERT_USER_BY_UUID, db_session.execute(new_user_stmt)
+            )
             return user.scalars().first()
         except Exception as e:
             raise DatabaseError(
@@ -415,11 +474,15 @@ class DbOperations:
             )
             .returning(AuthSession)
         )
-        new_session = await LogsHandler.with_logging(Action.CREATE_AUTH_SESSSION, db_session.execute(stmt))
+        new_session = await LogsHandler.with_logging(
+            Action.CREATE_AUTH_SESSSION, db_session.execute(stmt)
+        )
 
         return new_session.scalars().first()
 
-    async def theme_create_or_revive(db_session: AsyncSession, theme_input: ThemeInput) -> Theme:
+    async def theme_create_or_revive(
+        db_session: AsyncSession, theme_input: ThemeInput
+    ) -> Theme:
         # Query for existing records that match the filter criteria
         stmt = select(Theme).where(
             Theme.title == theme_input.title,
@@ -427,59 +490,92 @@ class DbOperations:
             Theme.position == theme_input.position,
         )
 
-        result = await LogsHandler.with_logging(Action.DB_GET_THEME, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_GET_THEME, db_session.execute(stmt)
+        )
         theme = result.scalars().first()
 
         if theme:
             # If an existing record is found, check if it is deleted
             if theme.deleted_at is not None:
                 # Revive the existing record by setting deleted_at to None
-                stmt = update(Theme).where(Theme.id == theme.id).values(deleted_at=None).returning(Theme)
-                result = await LogsHandler.with_logging(Action.DB_REVIVE_THEME, db_session.execute(stmt))
+                stmt = (
+                    update(Theme)
+                    .where(Theme.id == theme.id)
+                    .values(deleted_at=None)
+                    .returning(Theme)
+                )
+                result = await LogsHandler.with_logging(
+                    Action.DB_REVIVE_THEME, db_session.execute(stmt)
+                )
                 theme = result.scalars().first()
 
         else:
             # If no existing record is found, create a new one
             stmt = (
                 insert(Theme)
-                .values(title=theme_input.title, subtitle=theme_input.subtitle, position=theme_input.position)
+                .values(
+                    title=theme_input.title,
+                    subtitle=theme_input.subtitle,
+                    position=theme_input.position,
+                )
                 .returning(Theme)
             )
-            result = await LogsHandler.with_logging(Action.DB_REVIVE_THEME, db_session.execute(stmt))
+            result = await LogsHandler.with_logging(
+                Action.DB_REVIVE_THEME, db_session.execute(stmt)
+            )
             theme = result.scalars().first()
 
         return theme
 
     @staticmethod
     async def get_theme(
-        db_session: AsyncSession, theme_uuid: UUID, include_deleted_records: bool = False
+        db_session: AsyncSession,
+        theme_uuid: UUID,
+        include_deleted_records: bool = False,
     ) -> Optional[Theme]:
         if include_deleted_records:
             stmt = select(Theme).where(Theme.uuid == theme_uuid)
         else:
-            stmt = select(Theme).where(Theme.uuid == theme_uuid, Theme.deleted_at.is_(None))
+            stmt = select(Theme).where(
+                Theme.uuid == theme_uuid, Theme.deleted_at.is_(None)
+            )
 
-        result = await LogsHandler.with_logging(Action.DB_REVIVE_THEME, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_REVIVE_THEME, db_session.execute(stmt)
+        )
         return result.scalars().first()
 
     @staticmethod
-    async def get_message_by_uuid(db_session: AsyncSession, message_uuid: str) -> Optional[Message]:
+    async def get_message_by_uuid(
+        db_session: AsyncSession, message_uuid: str
+    ) -> Optional[Message]:
         stmt = select(Message).where(Message.uuid == message_uuid)
-        result = await LogsHandler.with_logging(Action.DB_GET_MESSAGE_BY_UUID, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_GET_MESSAGE_BY_UUID, db_session.execute(stmt)
+        )
         message = result.scalars().first()
         return message
 
     @staticmethod
-    async def get_message_feedback_labels_list(db_session: AsyncSession) -> List[Optional[FeedbackLabel]]:
+    async def get_message_feedback_labels_list(
+        db_session: AsyncSession,
+    ) -> List[Optional[FeedbackLabel]]:
         stmt = select(FeedbackLabel)
-        result = await LogsHandler.with_logging(Action.DB_GET_MESSAGE_LABELS, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_GET_MESSAGE_LABELS, db_session.execute(stmt)
+        )
         labels = result.scalars().all()
         return labels
 
     @staticmethod
-    async def get_feedback(db_session: AsyncSession, message_id: int) -> Optional[Feedback]:
+    async def get_feedback(
+        db_session: AsyncSession, message_id: int
+    ) -> Optional[Feedback]:
         stmt = select(Feedback).where(Feedback.message_id == message_id)
-        result = await LogsHandler.with_logging(Action.DB_GET_FEEDBACK, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_GET_FEEDBACK, db_session.execute(stmt)
+        )
         feedback = result.scalars().first()
         return feedback
 
@@ -492,7 +588,9 @@ class DbOperations:
         feedback_label_id: Optional[int] = None,
     ) -> Feedback:
         stmt = select(Feedback).where(Feedback.message_id == message_id)
-        result = await LogsHandler.with_logging(Action.DB_GET_FEEDBACK, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_GET_FEEDBACK, db_session.execute(stmt)
+        )
         feedback = result.scalars().first()
         if feedback is None:
             stmt = (
@@ -505,7 +603,9 @@ class DbOperations:
                 )
                 .returning(Feedback)
             )
-            result = await LogsHandler.with_logging(Action.DB_CREATE_FEEDBACK, db_session.execute(stmt))
+            result = await LogsHandler.with_logging(
+                Action.DB_CREATE_FEEDBACK, db_session.execute(stmt)
+            )
             feedback = result.scalars().first()
             return feedback
         stmt = (
@@ -520,22 +620,38 @@ class DbOperations:
             )
             .returning(Feedback)
         )
-        result = await LogsHandler.with_logging(Action.DB_CREATE_FEEDBACK, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_CREATE_FEEDBACK, db_session.execute(stmt)
+        )
         feedback = result.scalars().first()
         return feedback
 
     @staticmethod
-    async def delete_feedback(db_session: AsyncSession, feedback: Feedback) -> Optional[Feedback]:
-        stmt = update(Feedback).where(Feedback.id == feedback.id).values(deleted_at=datetime.now())
-        _ = await LogsHandler.with_logging(Action.DB_UPDATE_FEEDBACK, db_session.execute(stmt))
+    async def delete_feedback(
+        db_session: AsyncSession, feedback: Feedback
+    ) -> Optional[Feedback]:
+        stmt = (
+            update(Feedback)
+            .where(Feedback.id == feedback.id)
+            .values(deleted_at=datetime.now())
+        )
+        _ = await LogsHandler.with_logging(
+            Action.DB_UPDATE_FEEDBACK, db_session.execute(stmt)
+        )
         stmt = select(Feedback).where(Feedback.id == feedback.id)
-        result = await LogsHandler.with_logging(Action.DB_GET_FEEDBACK, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_GET_FEEDBACK, db_session.execute(stmt)
+        )
         return result.scalars().first()
 
     @staticmethod
-    async def get_feedback_score_by_name(db_session: AsyncSession, score: str) -> Optional[FeedbackScore]:
+    async def get_feedback_score_by_name(
+        db_session: AsyncSession, score: str
+    ) -> Optional[FeedbackScore]:
         stmt = select(FeedbackScore).where(FeedbackScore.score == score)
-        result = await LogsHandler.with_logging(Action.DB_GET_FEEDBACK_SCORE_BY_NAME, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_GET_FEEDBACK_SCORE_BY_NAME, db_session.execute(stmt)
+        )
 
         return result.scalars().first()
 
@@ -551,14 +667,20 @@ class DbOperations:
             )
         )
 
-        result = await LogsHandler.with_logging(Action.DB_REVIVE_THEME, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_REVIVE_THEME, db_session.execute(stmt)
+        )
 
         return result.scalars().all()
 
     @staticmethod
-    async def get_feedback_label_by_name(db_session: AsyncSession, feedback_label: str) -> Optional[FeedbackLabel]:
+    async def get_feedback_label_by_name(
+        db_session: AsyncSession, feedback_label: str
+    ) -> Optional[FeedbackLabel]:
         stmt = select(FeedbackLabel).where(FeedbackLabel.uuid == feedback_label)
-        result = await LogsHandler.with_logging(Action.DB_GET_FEEDBACK_LABEL_BY_LABEL, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_GET_FEEDBACK_LABEL_BY_LABEL, db_session.execute(stmt)
+        )
 
         return result.scalars().first()
 
@@ -574,8 +696,12 @@ class DbOperations:
         Returns:
             SearchIndex: A SearchIndex with the given name.
         """
-        stmt = select(SearchIndex).where(SearchIndex.name == name, SearchIndex.deleted_at.is_(None))
-        result = await LogsHandler.with_logging(Action.DB_GET_EXISTING_INDEX, db_session.execute(stmt))
+        stmt = select(SearchIndex).where(
+            SearchIndex.name == name, SearchIndex.deleted_at.is_(None)
+        )
+        result = await LogsHandler.with_logging(
+            Action.DB_GET_EXISTING_INDEX, db_session.execute(stmt)
+        )
         existing_index = result.scalars().first()
         return existing_index
 
@@ -591,13 +717,19 @@ class DbOperations:
         Returns:
             SearchIndex: A SearchIndex with the given UUID.
         """
-        stmt = select(SearchIndex).where(SearchIndex.name == name, SearchIndex.deleted_at.is_(None))
-        result = await LogsHandler.with_logging(Action.DB_GET_INDEX_BY_NAME, db_session.execute(stmt))
+        stmt = select(SearchIndex).where(
+            SearchIndex.name == name, SearchIndex.deleted_at.is_(None)
+        )
+        result = await LogsHandler.with_logging(
+            Action.DB_GET_INDEX_BY_NAME, db_session.execute(stmt)
+        )
         existing_index = result.scalars().first()
         return existing_index
 
     @staticmethod
-    async def get_index_by_uuid(db_session: AsyncSession, index_uuid: UUID) -> SearchIndex:
+    async def get_index_by_uuid(
+        db_session: AsyncSession, index_uuid: UUID
+    ) -> SearchIndex:
         """
         Returns an existing SearchIndex with the given UUID.
 
@@ -608,13 +740,19 @@ class DbOperations:
         Returns:
             SearchIndex: A SearchIndex with the given UUID.
         """
-        stmt = select(SearchIndex).where(SearchIndex.uuid == index_uuid, SearchIndex.deleted_at.is_(None))
-        result = await LogsHandler.with_logging(Action.DB_GET_INDEX_BY_UUID, db_session.execute(stmt))
+        stmt = select(SearchIndex).where(
+            SearchIndex.uuid == index_uuid, SearchIndex.deleted_at.is_(None)
+        )
+        result = await LogsHandler.with_logging(
+            Action.DB_GET_INDEX_BY_UUID, db_session.execute(stmt)
+        )
         existing_index = result.scalars().first()
         return existing_index
 
     @staticmethod
-    async def create_index(db_session: AsyncSession, name: str, description: str) -> SearchIndex:
+    async def create_index(
+        db_session: AsyncSession, name: str, description: str
+    ) -> SearchIndex:
         """
         Creates and returns a new SearchIndex with the given name and description.
 
@@ -626,8 +764,14 @@ class DbOperations:
         Returns:
             SearchIndex: A new SearchIndex.
         """
-        stmt = insert(SearchIndex).values(name=name, description=description).returning(SearchIndex)
-        existing_index = await LogsHandler.with_logging(Action.DB_CREATE_INDEX, db_session.execute(stmt))
+        stmt = (
+            insert(SearchIndex)
+            .values(name=name, description=description)
+            .returning(SearchIndex)
+        )
+        existing_index = await LogsHandler.with_logging(
+            Action.DB_CREATE_INDEX, db_session.execute(stmt)
+        )
         return existing_index
 
     @staticmethod
@@ -649,38 +793,60 @@ class DbOperations:
         """
         if include_personal_document_index:
             stmt = select(SearchIndex).filter(
-                SearchIndex.deleted_at.is_(None), SearchIndex.name == personal_documents_index_name
+                SearchIndex.deleted_at.is_(None),
+                SearchIndex.name == personal_documents_index_name,
             )
         else:
             stmt = select(SearchIndex).filter(
-                SearchIndex.deleted_at.is_(None), SearchIndex.name != personal_documents_index_name
+                SearchIndex.deleted_at.is_(None),
+                SearchIndex.name != personal_documents_index_name,
             )
 
-        result = await LogsHandler.with_logging(Action.DB_GET_ACTIVE_INDEXES, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_GET_ACTIVE_INDEXES, db_session.execute(stmt)
+        )
 
         return result.scalars().all()
 
     @staticmethod
-    async def theme_update(db_session: AsyncSession, theme_uuid: UUID, theme_input: ThemeInput) -> Optional[Theme]:
+    async def theme_update(
+        db_session: AsyncSession, theme_uuid: UUID, theme_input: ThemeInput
+    ) -> Optional[Theme]:
         stmt = (
             update(Theme)
             .where(Theme.uuid == theme_uuid)
-            .values(title=theme_input.title, subtitle=theme_input.subtitle, position=theme_input.position)
+            .values(
+                title=theme_input.title,
+                subtitle=theme_input.subtitle,
+                position=theme_input.position,
+            )
             .returning(Theme)
         )
-        result = await LogsHandler.with_logging(Action.DB_REVIVE_THEME, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_REVIVE_THEME, db_session.execute(stmt)
+        )
         return result.scalars().first()
 
     @staticmethod
-    async def theme_soft_delete_by_uuid(db_session: AsyncSession, theme_uuid: UUID) -> Optional[Theme]:
-        stmt = update(Theme).where(Theme.uuid == theme_uuid).values(deleted_at=datetime.now())
-        _ = await LogsHandler.with_logging(Action.DB_REVIVE_THEME, db_session.execute(stmt))
+    async def theme_soft_delete_by_uuid(
+        db_session: AsyncSession, theme_uuid: UUID
+    ) -> Optional[Theme]:
+        stmt = (
+            update(Theme)
+            .where(Theme.uuid == theme_uuid)
+            .values(deleted_at=datetime.now())
+        )
+        _ = await LogsHandler.with_logging(
+            Action.DB_REVIVE_THEME, db_session.execute(stmt)
+        )
 
     @staticmethod
     async def use_case_create_or_revive(
         db_session: AsyncSession, theme_uuid: UUID, use_case_input: UseCaseInputPost
     ) -> UseCase:
-        theme = await DbOperations.get_theme(db_session=db_session, theme_uuid=theme_uuid)
+        theme = await DbOperations.get_theme(
+            db_session=db_session, theme_uuid=theme_uuid
+        )
         # Query for existing records that match the filter criteria
         stmt = select(UseCase).where(
             UseCase.title == use_case_input.title,
@@ -690,7 +856,9 @@ class DbOperations:
             UseCase.position == use_case_input.position,
         )
 
-        result = await LogsHandler.with_logging(Action.DB_GET_THEME, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_GET_THEME, db_session.execute(stmt)
+        )
         use_case = result.scalars().first()
 
         if use_case:
@@ -699,8 +867,15 @@ class DbOperations:
                 # Revive the existing record by setting deleted_at to None
                 # use_case.deleted_at = None
                 # stmt = update(UseCase).where(UseCase.id == use_case.id).values(deleted_at=use_case.deleted_at)
-                stmt = update(UseCase).where(UseCase.id == use_case.id).values(deleted_at=None).returning(UseCase)
-                use_case = await LogsHandler.with_logging(Action.DB_REVIVE_THEME, db_session.execute(stmt))
+                stmt = (
+                    update(UseCase)
+                    .where(UseCase.id == use_case.id)
+                    .values(deleted_at=None)
+                    .returning(UseCase)
+                )
+                use_case = await LogsHandler.with_logging(
+                    Action.DB_REVIVE_THEME, db_session.execute(stmt)
+                )
                 return use_case.scalars().first()
         else:
             # If no existing record is found, create a new one
@@ -715,7 +890,9 @@ class DbOperations:
                 )
                 .returning(UseCase)
             )
-            result = await LogsHandler.with_logging(Action.DB_REVIVE_THEME, db_session.execute(stmt))
+            result = await LogsHandler.with_logging(
+                Action.DB_REVIVE_THEME, db_session.execute(stmt)
+            )
             use_case = result.scalars().first()
 
         return use_case
@@ -725,12 +902,18 @@ class DbOperations:
         db_session: AsyncSession, theme_uuid: UUID, use_case_uuid: UUID
     ) -> Optional[Tuple[UseCase, Theme]]:
         # Verify that the use case belongs to this theme UUID
-        use_case_stmt = select(UseCase).where(UseCase.uuid == use_case_uuid, UseCase.deleted_at.is_(None))
-        use_case_result = await LogsHandler.with_logging(Action.DB_REVIVE_THEME, db_session.execute(use_case_stmt))
+        use_case_stmt = select(UseCase).where(
+            UseCase.uuid == use_case_uuid, UseCase.deleted_at.is_(None)
+        )
+        use_case_result = await LogsHandler.with_logging(
+            Action.DB_REVIVE_THEME, db_session.execute(use_case_stmt)
+        )
         use_case = use_case_result.scalars().first()
 
         theme_stmt = select(Theme).where(Theme.uuid == theme_uuid)
-        theme_result = await LogsHandler.with_logging(Action.DB_REVIVE_THEME, db_session.execute(theme_stmt))
+        theme_result = await LogsHandler.with_logging(
+            Action.DB_REVIVE_THEME, db_session.execute(theme_stmt)
+        )
         theme = theme_result.scalars().first()
 
         if theme and use_case:
@@ -743,35 +926,50 @@ class DbOperations:
 
             # Proceed if condition is met
             theme_stmt = select(Theme).where(Theme.id == use_case.theme_id)
-            theme_result = await LogsHandler.with_logging(Action.DB_REVIVE_THEME, db_session.execute(theme_stmt))
+            theme_result = await LogsHandler.with_logging(
+                Action.DB_REVIVE_THEME, db_session.execute(theme_stmt)
+            )
             theme = theme_result.scalars().first()
 
         return theme, use_case
 
     @staticmethod
     async def use_case_get_by_uuid_no_theme(
-        db_session: AsyncSession, use_case_uuid: UUID, include_deleted_records: bool = False
+        db_session: AsyncSession,
+        use_case_uuid: UUID,
+        include_deleted_records: bool = False,
     ) -> Optional[UseCase]:
         # Verify that the use case belongs to this theme UUID
         if include_deleted_records:
             use_case_stmt = select(UseCase).where(UseCase.uuid == use_case_uuid)
         else:
-            use_case_stmt = select(UseCase).where(UseCase.uuid == use_case_uuid, UseCase.deleted_at.is_(None))
+            use_case_stmt = select(UseCase).where(
+                UseCase.uuid == use_case_uuid, UseCase.deleted_at.is_(None)
+            )
 
-        use_case_result = await LogsHandler.with_logging(Action.DB_REVIVE_THEME, db_session.execute(use_case_stmt))
+        use_case_result = await LogsHandler.with_logging(
+            Action.DB_REVIVE_THEME, db_session.execute(use_case_stmt)
+        )
         use_case = use_case_result.scalars().first()
         return use_case
 
     @staticmethod
-    async def theme_get_by_id(db_session: AsyncSession, theme_id: id) -> Optional[Theme]:
+    async def theme_get_by_id(
+        db_session: AsyncSession, theme_id: id
+    ) -> Optional[Theme]:
         stmt = select(Theme).where(Theme.id == theme_id)
-        result = await LogsHandler.with_logging(Action.DB_REVIVE_THEME, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_REVIVE_THEME, db_session.execute(stmt)
+        )
         theme = result.scalars().first()
         return theme
 
     @staticmethod
     async def use_case_update_by_uuid(
-        db_session: AsyncSession, theme: Theme, use_case_uuid: UUID, use_case_input: UseCaseInputPut
+        db_session: AsyncSession,
+        theme: Theme,
+        use_case_uuid: UUID,
+        use_case_input: UseCaseInputPut,
     ) -> Optional[UseCase]:
         stmt = (
             update(UseCase)
@@ -784,19 +982,33 @@ class DbOperations:
                 position=use_case_input.position,
             )
         )
-        _ = await LogsHandler.with_logging(Action.DB_REVIVE_THEME, db_session.execute(stmt))
+        _ = await LogsHandler.with_logging(
+            Action.DB_REVIVE_THEME, db_session.execute(stmt)
+        )
         stmt = select(UseCase).where(UseCase.uuid == use_case_uuid)
-        result = await LogsHandler.with_logging(Action.DB_REVIVE_THEME, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_REVIVE_THEME, db_session.execute(stmt)
+        )
         return result.scalars().first()
 
     @staticmethod
-    async def use_case_soft_delete_by_uuid(db_session: AsyncSession, use_case_uuid: UUID) -> Optional[bool]:
-        stmt = update(UseCase).where(UseCase.uuid == use_case_uuid).values(deleted_at=datetime.now())
-        _ = await LogsHandler.with_logging(Action.DB_REVIVE_THEME, db_session.execute(stmt))
+    async def use_case_soft_delete_by_uuid(
+        db_session: AsyncSession, use_case_uuid: UUID
+    ) -> Optional[bool]:
+        stmt = (
+            update(UseCase)
+            .where(UseCase.uuid == use_case_uuid)
+            .values(deleted_at=datetime.now())
+        )
+        _ = await LogsHandler.with_logging(
+            Action.DB_REVIVE_THEME, db_session.execute(stmt)
+        )
         return
 
     @staticmethod
-    async def use_case_get_by_theme(db_session: AsyncSession, theme_uuid: UUID) -> List[UseCase]:
+    async def use_case_get_by_theme(
+        db_session: AsyncSession, theme_uuid: UUID
+    ) -> List[UseCase]:
         stmt = (
             select(UseCase)
             .filter(UseCase.theme_id == theme_uuid, UseCase.deleted_at.is_(None))
@@ -806,11 +1018,15 @@ class DbOperations:
                 UseCase.id,
             )
         )
-        result = await LogsHandler.with_logging(Action.DB_REVIVE_THEME, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_REVIVE_THEME, db_session.execute(stmt)
+        )
         return result.scalars().all()
 
     @staticmethod
-    async def theme_fetch_all_ordered_by_position_or_id(db_session: AsyncSession) -> List[Theme]:
+    async def theme_fetch_all_ordered_by_position_or_id(
+        db_session: AsyncSession,
+    ) -> List[Theme]:
         stmt = (
             select(Theme)
             .filter(Theme.deleted_at.is_(None))
@@ -820,22 +1036,38 @@ class DbOperations:
                 Theme.id,
             )
         )
-        result = await LogsHandler.with_logging(Action.DB_REVIVE_THEME, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_REVIVE_THEME, db_session.execute(stmt)
+        )
         return result.scalars().all()
 
     @staticmethod
     async def theme_delete_all(db_session: AsyncSession) -> List[bool]:
-        stmt = update(Theme).where(Theme.deleted_at is not None).values(deleted_at=datetime.now())
-        _ = await LogsHandler.with_logging(Action.DB_UPDATE_THEME, db_session.execute(stmt))
+        stmt = (
+            update(Theme)
+            .where(Theme.deleted_at is not None)
+            .values(deleted_at=datetime.now())
+        )
+        _ = await LogsHandler.with_logging(
+            Action.DB_UPDATE_THEME, db_session.execute(stmt)
+        )
         # await db_session.commit()
 
     @staticmethod
     async def use_case_delete_all(db_session: AsyncSession) -> List[bool]:
-        stmt = update(UseCase).where(UseCase.deleted_at is not None).values(deleted_at=datetime.now())
-        _ = await LogsHandler.with_logging(Action.DB_UPDATE_USE_CASE, db_session.execute(stmt))
+        stmt = (
+            update(UseCase)
+            .where(UseCase.deleted_at is not None)
+            .values(deleted_at=datetime.now())
+        )
+        _ = await LogsHandler.with_logging(
+            Action.DB_UPDATE_USE_CASE, db_session.execute(stmt)
+        )
         # await db_session.commit()
 
-    async def get_document_chunks(db_session: AsyncSession, search_index: SearchIndex) -> List[DocumentChunk]:
+    async def get_document_chunks(
+        db_session: AsyncSession, search_index: SearchIndex
+    ) -> List[DocumentChunk]:
         """
         Returns a list of DocumentChunks belonging to the given search_index.
 
@@ -846,14 +1078,22 @@ class DbOperations:
         Returns:
             List[DocumentChunk]: A list of DocumentChunks belonging to the given search_index.
         """
-        stmt = select(SearchIndex).where(SearchIndex.id == search_index.id, DocumentChunk.deleted_at.is_(None))
-        result = await LogsHandler.with_logging(Action.DB_GET_DOCUMENT_CHUNKS, db_session.execute(stmt))
+        stmt = select(SearchIndex).where(
+            SearchIndex.id == search_index.id, DocumentChunk.deleted_at.is_(None)
+        )
+        result = await LogsHandler.with_logging(
+            Action.DB_GET_DOCUMENT_CHUNKS, db_session.execute(stmt)
+        )
         document_chunks = result.scalars().all()
         return document_chunks
 
     @staticmethod
     async def get_existing_chunk(
-        db_session: AsyncSession, search_index_id: int, document_id: int, name: str, content: str
+        db_session: AsyncSession,
+        search_index_id: int,
+        document_id: int,
+        name: str,
+        content: str,
     ) -> DocumentChunk:
         """
         Returns a DocumentChunk with the given name and content.
@@ -876,12 +1116,16 @@ class DbOperations:
                 DocumentChunk.deleted_at.is_(None),
             )
         )
-        result = await LogsHandler.with_logging(Action.DB_GET_EXISTING_CHUNK, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_GET_EXISTING_CHUNK, db_session.execute(stmt)
+        )
         existing_chunk = result.scalars().first()
         return existing_chunk
 
     @staticmethod
-    async def get_existing_document(db_session: AsyncSession, name: str, url: str) -> Document:
+    async def get_existing_document(
+        db_session: AsyncSession, name: str, url: str
+    ) -> Document:
         """
         Returns a Document with the given name and url.
 
@@ -894,12 +1138,16 @@ class DbOperations:
             Document: A Document with the given name and url.
         """
         stmt = select(Document).where(Document.name == name, Document.url == url)
-        result = await LogsHandler.with_logging(Action.DB_GET_EXISTING_DOCUMENT, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_GET_EXISTING_DOCUMENT, db_session.execute(stmt)
+        )
         document = result.scalars().first()
         return document
 
     @staticmethod
-    async def create_central_document(db_session: AsyncSession, name: str, description: str, url: str) -> Document:
+    async def create_central_document(
+        db_session: AsyncSession, name: str, description: str, url: str
+    ) -> Document:
         """
         Creates a Document in the central RAG with the given name and url.
 
@@ -912,8 +1160,14 @@ class DbOperations:
         Returns:
             Document: A Document with the given name, description and url.
         """
-        stmt = insert(Document).values(name=name, description=description, url=url, is_central=True).returning(Document)
-        document = await LogsHandler.with_logging(Action.DB_CREATE_DOCUMENT, db_session.execute(stmt))
+        stmt = (
+            insert(Document)
+            .values(name=name, description=description, url=url, is_central=True)
+            .returning(Document)
+        )
+        document = await LogsHandler.with_logging(
+            Action.DB_CREATE_DOCUMENT, db_session.execute(stmt)
+        )
         return document.scalars().first()
 
     @staticmethod
@@ -950,7 +1204,9 @@ class DbOperations:
             )
             .returning(DocumentChunk)
         )
-        document = await LogsHandler.with_logging(Action.DB_ADD_CHUNK, db_session.execute(stmt))
+        document = await LogsHandler.with_logging(
+            Action.DB_ADD_CHUNK, db_session.execute(stmt)
+        )
         return document
 
     @staticmethod
@@ -971,22 +1227,32 @@ class DbOperations:
             List[DocumentChunk]: A list of DocumentChunks.
         """
         if show_deleted_chunks:
-            stmt = select(DocumentChunk).join(SearchIndex).filter(SearchIndex.uuid == search_index_uuid)
+            stmt = (
+                select(DocumentChunk)
+                .join(SearchIndex)
+                .filter(SearchIndex.uuid == search_index_uuid)
+            )
         else:
             stmt = (
                 select(DocumentChunk)
                 .join(SearchIndex)
-                .filter(SearchIndex.uuid == search_index_uuid, DocumentChunk.deleted_at.is_(None))
+                .filter(
+                    SearchIndex.uuid == search_index_uuid,
+                    DocumentChunk.deleted_at.is_(None),
+                )
             )
 
         result = await LogsHandler.with_logging(
-            Action.DB_GET_DOCUMENT_CHUNKS_FILTERED_WITH_SEARCH_INDEX, db_session.execute(stmt)
+            Action.DB_GET_DOCUMENT_CHUNKS_FILTERED_WITH_SEARCH_INDEX,
+            db_session.execute(stmt),
         )
 
         return result.scalars().all()
 
     @staticmethod
-    async def get_document_chunk_by_uuid(db_session: AsyncSession, document_chunk_uuid: UUID) -> DocumentChunk:
+    async def get_document_chunk_by_uuid(
+        db_session: AsyncSession, document_chunk_uuid: UUID
+    ) -> DocumentChunk:
         """
         Returns a DocumentChunk with the given UUID.
 
@@ -998,11 +1264,15 @@ class DbOperations:
             DocumentChunk: A DocumentChunks with the given UUID.
         """
         stmt = select(DocumentChunk).filter(DocumentChunk.uuid == document_chunk_uuid)
-        result = await LogsHandler.with_logging(Action.DB_GET_DOCUMENT_CHUNKS_BY_UUID, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_GET_DOCUMENT_CHUNKS_BY_UUID, db_session.execute(stmt)
+        )
         return result.scalars().first()
 
     @staticmethod
-    async def list_documents(db_session: AsyncSession, show_deleted_documents: bool = False) -> List[Document]:
+    async def list_documents(
+        db_session: AsyncSession, show_deleted_documents: bool = False
+    ) -> List[Document]:
         """
         Returns a list of all Documents, optionally including deleted documents.
 
@@ -1018,27 +1288,34 @@ class DbOperations:
         else:
             stmt = select(Document).filter(Document.deleted_at.is_(None))
 
-        result = await LogsHandler.with_logging(Action.DB_LIST_DOCUMENTS, db_session.execute(stmt))
+        result = await LogsHandler.with_logging(
+            Action.DB_LIST_DOCUMENTS, db_session.execute(stmt)
+        )
         return result.scalars().all()
 
     async def get_ping_database(db_session: AsyncSession):
         try:
             # Attempt to execute a simple SELECT statement
             stmt = text("SELECT 1")
-            ping_result = await LogsHandler.with_logging(Action.DB_PING, db_session.execute(stmt))
+            ping_result = await LogsHandler.with_logging(
+                Action.DB_PING, db_session.execute(stmt)
+            )
             _ = ping_result.scalars().first()
             return {"message": "Successfully connected to the database."}
         except SQLAlchemyError as e:
             # If an error occurs, return an HTTP error response
             raise DatabaseError(
                 code=DatabaseExceptionErrorCode.GET_ERROR,
-                message="An error occurred when attempting to connect to the database. " + f"Original error: {e}",
+                message="An error occurred when attempting to connect to the database. "
+                + f"Original error: {e}",
             ) from e
 
     @staticmethod
     async def get_all_use_cases(db_session: AsyncSession):
         stmt = select(UseCase)
-        use_case_result = await LogsHandler.with_logging(Action.DB_FETCH_ALL_USE_CASES, db_session.execute(stmt))
+        use_case_result = await LogsHandler.with_logging(
+            Action.DB_FETCH_ALL_USE_CASES, db_session.execute(stmt)
+        )
         use_cases = use_case_result.scalars().fetch_all()
 
         return use_cases
@@ -1047,10 +1324,14 @@ class DbOperations:
     async def reset_themes_use_cases(db_session: AsyncSession, data: dict):
         for theme_name, use_cases in data.items():
             theme_stmt = insert(Theme).values(value=theme_name).returning(Theme)
-            theme = await LogsHandler.with_logging(Action.DB_FETCH_ALL_USE_CASES, db_session.execute(theme_stmt))
+            theme = await LogsHandler.with_logging(
+                Action.DB_FETCH_ALL_USE_CASES, db_session.execute(theme_stmt)
+            )
             for use_case_data in use_cases:
                 use_case_stmt = (
-                    insert(UseCase).values(**use_case_data, system_prompt="", theme_id=theme.id).returning(UseCase)
+                    insert(UseCase)
+                    .values(**use_case_data, system_prompt="", theme_id=theme.id)
+                    .returning(UseCase)
                 )
                 use_case = await LogsHandler.with_logging(
                     Action.DB_FETCH_ALL_USE_CASES, db_session.execute(use_case_stmt)
@@ -1061,7 +1342,9 @@ class DbOperations:
     # lib/user.py db operations
     #
     @staticmethod
-    async def create_user(db_session: AsyncSession, user_input: UserCreationInput) -> UserCreationResponse:
+    async def create_user(
+        db_session: AsyncSession, user_input: UserCreationInput
+    ) -> UserCreationResponse:
         """
         Creates a new user in the database if one doesn't already exist with the given UUID.
 
@@ -1080,7 +1363,9 @@ class DbOperations:
 
         async def _create_user():
             # Check if user already exists
-            existing_user = await db_session.execute(select(User).where(User.uuid == user_input.uuid))
+            existing_user = await db_session.execute(
+                select(User).where(User.uuid == user_input.uuid)
+            )
 
             if existing_user.scalar_one_or_none():
                 msg = f"User already exists with UUID: {user_input.uuid}"
@@ -1103,10 +1388,14 @@ class DbOperations:
             logger.info(msg)
             return UserCreationResponse(success=True, message=msg)
 
-        return await LogsHandler.with_logging(Action.INSERT_USER_BY_UUID, _create_user())
+        return await LogsHandler.with_logging(
+            Action.INSERT_USER_BY_UUID, _create_user()
+        )
 
     @staticmethod
-    async def update_user(db_session: AsyncSession, user_uuid: UUID, user_input: UserInput) -> UserCreationResponse:
+    async def update_user(
+        db_session: AsyncSession, user_uuid: UUID, user_input: UserInput
+    ) -> UserCreationResponse:
         """
         Updates an existing user in the database with the provided profile information.
 
@@ -1126,7 +1415,9 @@ class DbOperations:
 
         async def _update_user():
             # Check if user exists
-            existing_user = await db_session.execute(select(User).where(User.uuid == user_uuid))
+            existing_user = await db_session.execute(
+                select(User).where(User.uuid == user_uuid)
+            )
             user = existing_user.scalar_one_or_none()
 
             if not user:
@@ -1146,7 +1437,9 @@ class DbOperations:
             logger.info(msg)
             return UserCreationResponse(success=True, message=msg)
 
-        return await LogsHandler.with_logging(Action.UPDATE_USER_BY_UUID, _update_user())
+        return await LogsHandler.with_logging(
+            Action.UPDATE_USER_BY_UUID, _update_user()
+        )
 
     # lib/user_prompt.py db operations
     #
@@ -1169,13 +1462,17 @@ class DbOperations:
             .filter(UserPrompt.deleted_at.is_(None))
             .order_by(UserPrompt.created_at)
         )
-        user_prompt_result = await LogsHandler.with_logging(Action.DB_RETRIEVE_USER_PROMPTS, db_session.execute(stmt))
+        user_prompt_result = await LogsHandler.with_logging(
+            Action.DB_RETRIEVE_USER_PROMPTS, db_session.execute(stmt)
+        )
         user_prompts = user_prompt_result.scalars().all()
 
         return user_prompts
 
     @staticmethod
-    async def insert_single_user_prompt(db_session: AsyncSession, user_id: int, title: str, content: str) -> UserPrompt:
+    async def insert_single_user_prompt(
+        db_session: AsyncSession, user_id: int, title: str, content: str
+    ) -> UserPrompt:
         """
         Creates a user prompt using title, user_id and content provided in the database and
         returns newly created user prompt
@@ -1188,14 +1485,22 @@ class DbOperations:
         Returns:
             UserPrompt: The user prompt with body, title, and date of creation.
         """
-        stmt = insert(UserPrompt).values(user_id=user_id, title=title, content=content).returning(UserPrompt)
-        user_prompt_result = await LogsHandler.with_logging(Action.DB_CREATE_USER_PROMPT, db_session.execute(stmt))
+        stmt = (
+            insert(UserPrompt)
+            .values(user_id=user_id, title=title, content=content)
+            .returning(UserPrompt)
+        )
+        user_prompt_result = await LogsHandler.with_logging(
+            Action.DB_CREATE_USER_PROMPT, db_session.execute(stmt)
+        )
         user_document = user_prompt_result.scalars().unique().one()
 
         return user_document
 
     @staticmethod
-    async def get_single_user_prompt(db_session: AsyncSession, user_id: str, user_prompt_uuid: UUID) -> UserPrompt:
+    async def get_single_user_prompt(
+        db_session: AsyncSession, user_id: str, user_prompt_uuid: UUID
+    ) -> UserPrompt:
         """
         Retrieve specific user prompt identified by its UUID and user ID.
         Args
@@ -1212,13 +1517,19 @@ class DbOperations:
             .filter(UserPrompt.user_id == int(user_id))
             .order_by(UserPrompt.created_at)
         )
-        user_prompt_result = await LogsHandler.with_logging(Action.DB_RETRIEVE_USER_PROMPT, db_session.execute(stmt))
+        user_prompt_result = await LogsHandler.with_logging(
+            Action.DB_RETRIEVE_USER_PROMPT, db_session.execute(stmt)
+        )
         user_document = user_prompt_result.scalars().unique().first()
         return user_document
 
     @staticmethod
     async def update_single_user_prompt(
-        db_session: AsyncSession, user_id: int, user_prompt_uuid: UUID, title: str, content: str
+        db_session: AsyncSession,
+        user_id: int,
+        user_prompt_uuid: UUID,
+        title: str,
+        content: str,
     ) -> UserPrompt:
         """
         Update specific user prompt identified by its id and user ID.
@@ -1234,16 +1545,22 @@ class DbOperations:
         """
         stmt = (
             update(UserPrompt)
-            .values(user_id=user_id, uuid=user_prompt_uuid, title=title, content=content)
+            .values(
+                user_id=user_id, uuid=user_prompt_uuid, title=title, content=content
+            )
             .where(UserPrompt.user_id == user_id, UserPrompt.uuid == user_prompt_uuid)
             .returning(UserPrompt)
         )
-        user_prompt_result = await LogsHandler.with_logging(Action.DB_UPDATE_USER_PROMPT, db_session.execute(stmt))
+        user_prompt_result = await LogsHandler.with_logging(
+            Action.DB_UPDATE_USER_PROMPT, db_session.execute(stmt)
+        )
         user_document = user_prompt_result.scalars().unique().one()
         return user_document
 
     @staticmethod
-    async def delete_single_user_prompt(db_session: AsyncSession, user_id: int, user_prompt_uuid: UUID) -> Result:
+    async def delete_single_user_prompt(
+        db_session: AsyncSession, user_id: int, user_prompt_uuid: UUID
+    ) -> Result:
         """
         Delete specific user prompt identified by its id and user ID.
         Args:
@@ -1254,23 +1571,38 @@ class DbOperations:
         Returns:
             Response
         """
-        stmt = delete(UserPrompt).where(UserPrompt.user_id == user_id, UserPrompt.uuid == user_prompt_uuid)
-        user_prompt_result = await LogsHandler.with_logging(Action.DB_DELETE_USER_PROMPT, db_session.execute(stmt))
+        stmt = delete(UserPrompt).where(
+            UserPrompt.user_id == user_id, UserPrompt.uuid == user_prompt_uuid
+        )
+        user_prompt_result = await LogsHandler.with_logging(
+            Action.DB_DELETE_USER_PROMPT, db_session.execute(stmt)
+        )
         return user_prompt_result
 
     @staticmethod
     async def retrieve_analytics(
-        db_session: AsyncSession, table: Table, start_date: Optional[datetime.date], end_date: Optional[datetime.date]
+        db_session: AsyncSession,
+        table: Table,
+        start_date: Optional[datetime.date],
+        end_date: Optional[datetime.date],
     ) -> Any:
         data = []
         if start_date and end_date:
             if start_date == end_date:
-                stmt = select(table).where(table.created_at == start_date).order_by(desc(table.created_at))
+                stmt = (
+                    select(table)
+                    .where(table.created_at == start_date)
+                    .order_by(desc(table.created_at))
+                )
             else:
                 stmt = (
-                    select(table).where(table.created_at.between(start_date, end_date)).order_by(desc(table.created_at))
+                    select(table)
+                    .where(table.created_at.between(start_date, end_date))
+                    .order_by(desc(table.created_at))
                 )
-            data = await LogsHandler.with_logging(Action.DB_MARK_DOCUMENT_DELETED, db_session.execute(stmt))
+            data = await LogsHandler.with_logging(
+                Action.DB_MARK_DOCUMENT_DELETED, db_session.execute(stmt)
+            )
 
         if data:
             data_dict = [msg.__dict__ for msg in data]
@@ -1278,7 +1610,9 @@ class DbOperations:
         return []  # Return an empty list if 'data' is falsy
 
     @staticmethod
-    async def chat_update_title(db_session: AsyncSession, chat: Chat, title: str) -> Chat:
+    async def chat_update_title(
+        db_session: AsyncSession, chat: Chat, title: str
+    ) -> Chat:
         """
         Updates the chat title.
 
@@ -1291,8 +1625,15 @@ class DbOperations:
         """
 
         try:
-            chat_stmt = update(Chat).values(title=title).where(Chat.id == chat.id).returning(Chat)
-            result = await LogsHandler.with_logging(Action.DB_UPDATE_CHAT_TITLE, db_session.execute(chat_stmt))
+            chat_stmt = (
+                update(Chat)
+                .values(title=title)
+                .where(Chat.id == chat.id)
+                .returning(Chat)
+            )
+            result = await LogsHandler.with_logging(
+                Action.DB_UPDATE_CHAT_TITLE, db_session.execute(chat_stmt)
+            )
             return result.scalars().first()
         except Exception as e:
             raise DatabaseError(

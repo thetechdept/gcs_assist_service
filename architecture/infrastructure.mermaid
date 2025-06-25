@@ -1,0 +1,20 @@
+graph TD
+subgraph "Docker Environment"
+A[api] --> B((PostgreSQL));
+A --> C{{OpenSearch Cluster}};
+C --> D[OpenSearch Node 1];
+C --> E[OpenSearch Node 2];
+F[OpenSearch Dashboards] --> C;
+G[Adminer] --> B;
+end
+
+    subgraph "External Services"
+        A --> H{AWS Bedrock};
+        A --> I{Bugsnag};
+    end
+
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style B fill:#bbf,stroke:#333,stroke-width:2px
+    style C fill:#ccf,stroke:#333,stroke-width:2px
+    style F fill:#ccf,stroke:#333,stroke-width:2px
+    style G fill:#bbf,stroke:#333,stroke-width:2px

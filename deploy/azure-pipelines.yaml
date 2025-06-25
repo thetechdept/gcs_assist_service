@@ -67,6 +67,15 @@ stages:
           openaiApiKey: $(openaiApiKey.dev)
           postgresPassword: $(postgresPassword.dev)
           opensearchAdminPassword: $(opensearchAdminPassword.dev)
+          awsAccessKeyId: $(awsAccessKeyId.dev)
+          awsSecretAccessKey: $(awsSecretAccessKey.dev)
+          ragLlmModelIndexRouter: $(ragLlmModelIndexRouter.dev)
+          ragSystemPromptIndexRouter: $(ragSystemPromptIndexRouter.dev)
+          ragLlmModelQueryRewriter: $(ragLlmModelQueryRewriter.dev)
+          ragSystemPromptQueryRewriter: $(ragSystemPromptQueryRewriter.dev)
+          ragLlmModelChunkReviewer: $(ragLlmModelChunkReviewer.dev)
+          ragSystemPromptChunkReviewer: $(ragSystemPromptChunkReviewer.dev)
+          llmDefaultModel: $(llmDefaultModel.dev)
         strategy:
           runOnce:
             deploy:
@@ -90,6 +99,15 @@ stages:
           openaiApiKey: $(openaiApiKey.qa)
           postgresPassword: $(postgresPassword.qa)
           opensearchAdminPassword: $(opensearchAdminPassword.qa)
+          awsAccessKeyId: $(awsAccessKeyId.qa)
+          awsSecretAccessKey: $(awsSecretAccessKey.qa)
+          ragLlmModelIndexRouter: $(ragLlmModelIndexRouter.qa)
+          ragSystemPromptIndexRouter: $(ragSystemPromptIndexRouter.qa)
+          ragLlmModelQueryRewriter: $(ragLlmModelQueryRewriter.qa)
+          ragSystemPromptQueryRewriter: $(ragSystemPromptQueryRewriter.qa)
+          ragLlmModelChunkReviewer: $(ragLlmModelChunkReviewer.qa)
+          ragSystemPromptChunkReviewer: $(ragSystemPromptChunkReviewer.qa)
+          llmDefaultModel: $(llmDefaultModel.qa)
         strategy:
           runOnce:
             deploy:
@@ -113,6 +131,15 @@ stages:
           openaiApiKey: $(openaiApiKey.prod)
           postgresPassword: $(postgresPassword.prod)
           opensearchAdminPassword: $(opensearchAdminPassword.prod)
+          awsAccessKeyId: $(awsAccessKeyId.prod)
+          awsSecretAccessKey: $(awsSecretAccessKey.prod)
+          ragLlmModelIndexRouter: $(ragLlmModelIndexRouter.prod)
+          ragSystemPromptIndexRouter: $(ragSystemPromptIndexRouter.prod)
+          ragLlmModelQueryRewriter: $(ragLlmModelQueryRewriter.prod)
+          ragSystemPromptQueryRewriter: $(ragSystemPromptQueryRewriter.prod)
+          ragLlmModelChunkReviewer: $(ragLlmModelChunkReviewer.prod)
+          ragSystemPromptChunkReviewer: $(ragSystemPromptChunkReviewer.prod)
+          llmDefaultModel: $(llmDefaultModel.prod)
         strategy:
           runOnce:
             deploy:
